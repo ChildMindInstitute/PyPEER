@@ -19,6 +19,16 @@ img = nib.load('peer2_processed.nii.gz')
 data = img.get_data()
 print(img.shape)
 
+# Vectorize data into single np array
+
+listed = []
+
+for tr in range(int(data.shape[3])):
+
+    tr_data = data[:, :, 15:30, tr]
+    vectorized = np.array(tr_data.ravel())
+    listed.append(vectorized)
+
 # For visualization
 for num in [0, 50]:
     visual = image.index_img(img, num)
@@ -27,10 +37,6 @@ for num in [0, 50]:
 
     plotting.plot_stat_map(visual)
     plotting.show()
-
-# Data processing (flatten voxel intensity from 2D to 1D)
-# Use RAVEL function python (np.ravel())
-
 
 # Train SVR classifier on first two calibrations and predict values for third calibration
 train_vectors = 'Contains vectors of voxel intensity values for each axial slice'
