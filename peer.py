@@ -6,6 +6,7 @@
 import os
 import sys
 import numpy as np
+import pandas as pd
 import nibabel as nib
 from nilearn import image
 from sklearn.svm import SVR
@@ -13,6 +14,9 @@ from nilearn import plotting
 import matplotlib.pyplot as plt
 
 # DON'T FORGET MOTION CORRECTION BEFORE IMPORTING DATA
+
+monitor_width = 1680
+monitor_height = 1050
 
 # Import data
 img = nib.load('peer2_processed.nii.gz')
@@ -29,6 +33,14 @@ for tr in range(int(data.shape[3])):
     vectorized = np.array(tr_data.ravel())
     listed.append(vectorized)
 
+df = np.asarray(listed)
+
+# Create np array that contains all fixation locations, separated by x and y coordinates
+
+fixations = pd.read_csv('stim_vals.csv')
+x_targets = np.repeat(np.array(fixations['pos_x']), 5)*monitor_width
+y_targets = np.repeat(np.array(fixations['pos_y']), 5)*monitor_height
+
 # For visualization
 for num in [0, 50]:
     visual = image.index_img(img, num)
@@ -43,12 +55,16 @@ train_vectors = 'Contains vectors of voxel intensity values for each axial slice
 test_vectors = 'Contains vectors of voxel intensity values for each axial slice'
 train_x = 'Contains x coordinates of first two calibration fixations'
 train_y = 'Contains y coordinates of first two calibration fixations'
-test_x = 'Contains x coordinates of third calibration fixations'
-test_y = 'Contains x coordinates of third calibration fixations'
+test_vectors = 'Contains x coordinates of third calibration fixations'
+test_vectors = 'Contains x coordinates of third calibration fixations'
+
+# Testing
+train_vectors = df
+train_x = x_targets
 
 classifier = SVR(kernel='poly', degree=10, C=100, epsilon=.001)
-predicted_x = classifier.fit(train_vectors, train_x).predict(test_x)
-predicted_y = classifier.fit(train_vectors, train_y).predict(test_y)
+predicted_x = classifier.fit(train_vectors, train_x).predict(test_vectors)
+predicted_y = classifier.fit(train_vectors, train_y).predict(test_vectors)
 
 # Plot SVR predictions against targets
 plt.figure()
