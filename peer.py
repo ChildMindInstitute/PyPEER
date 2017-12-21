@@ -45,19 +45,43 @@ for tr in range(int(data.shape[3])): # training with 5TRs from each fixation (av
 
 # Average across 5 TR (since they aren't independent, can't treat as separate points)
 
-averaged_train = []
-averaged_test = []
-
-x = 1
-for num in range(int(data.shape[3])):
-
-    if x <= 5:
-        print('add to temporary list for averaging before adding to averaged_train and averaged_test')
-    else:
-        x = 1
+# averaged_train = []
+# averaged_test = []
+#
+# x = 0
+# for num in range(int(data.shape[3])):
+#
+#     temp_train = []
+#     temp_test = []
+#
+#     if x < 5:
+#         temp_train.append(listed[num])
+#         temp_test.append(listed_testing[num])
+#         print('added')
+#         x += 1
+#     elif x == 5:
+#         print(temp_train)
+#         print(temp_train[0])
+#         averaged_train.append((temp_train[0]+temp_train[1]+temp_train[2]+temp_train[3]+temp_train[4])/5)
+#         averaged_test.append((temp_test[0]+temp_test[1]+temp_test[2]+temp_test[3]+temp_test[4])/5)
+#     else:
+#         x = 0
+#         temp_train = []
+#         temp_test = []
 
 train_vectors = np.asarray(listed)
 test_vectors = np.asarray(listed_testing)
+
+averaged_train = [] # Should be converted back to np.array
+averaged_test = [] # Should be converted back to np.array after averaging
+
+for num in [i*5 for i in range(27)]:
+
+    averaged_train.append(np.average(train_vectors[num:num+5], axis=0))
+    averaged_test.append(np.average(test_vectors[num:num+5], axis=0))
+
+train_vectors = np.asarray(averaged_train)
+test_vectors = np.asarray(averaged_test)
 
 # Create np array that contains all fixation locations, separated by x and y coordinates
 
@@ -74,7 +98,7 @@ y_targets = np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2
 
 # Build classifiers with variable hyperparameters
 
-classifier = SVR(kernel='rbf', C=100, epsilon=.001)
+classifier = SVR(kernel='rbf', C=10000, epsilon=.001)
 # Validation
 validation_x = classifier.fit(train_vectors, x_targets).predict(train_vectors)
 validation_y = classifier.fit(train_vectors, y_targets).predict(train_vectors)
@@ -94,18 +118,16 @@ predicted_x = clfx.predict(test_vectors)
 predicted_y = clfy.predict(test_vectors)
 
 # Plot SVR predictions against targets
+
 plt.figure()
-plt.scatter(predicted_x[:5], predicted_y[:5], color='r', alpha=.35)
-plt.scatter(predicted_x[5:10], predicted_y[5:10], color='b', alpha=.35)
-plt.scatter(predicted_x[10:15], predicted_y[10:15], color='g', alpha=.35)
-plt.scatter(predicted_x[15:20], predicted_y[15:20], color='m', alpha=.35)
-plt.scatter(predicted_x[20:25], predicted_y[20:25], color='y', alpha=.35)
-plt.scatter(predicted_x[25:30], predicted_y[25:30], color='c', alpha=.35)
+
+for num in [i*5 for i in range(27)]:
+    plt.scatter(predicted_x[num:num+5], predicted_y[num:num+5], alpha=.35)
+
 plt.scatter(x_targets, y_targets, color='k', alpha=.5)
 plt.xlabel('x-position')
 plt.ylabel('y-position')
 plt.title('Support Vector Regression - PEER')
-plt.legend()
 plt.show()
 
 
