@@ -43,31 +43,9 @@ for tr in range(int(data.shape[3])): # training with 5TRs from each fixation (av
     listed.append(vectorized)
     listed_testing.append(vectorized_testing)
 
-# Average across 5 TR (since they aren't independent, can't treat as separate points)
-
-# averaged_train = []
-# averaged_test = []
-#
-# x = 0
-# for num in range(int(data.shape[3])):
-#
-#     temp_train = []
-#     temp_test = []
-#
-#     if x < 5:
-#         temp_train.append(listed[num])
-#         temp_test.append(listed_testing[num])
-#         print('added')
-#         x += 1
-#     elif x == 5:
-#         print(temp_train)
-#         print(temp_train[0])
-#         averaged_train.append((temp_train[0]+temp_train[1]+temp_train[2]+temp_train[3]+temp_train[4])/5)
-#         averaged_test.append((temp_test[0]+temp_test[1]+temp_test[2]+temp_test[3]+temp_test[4])/5)
-#     else:
-#         x = 0
-#         temp_train = []
-#         temp_test = []
+# CHECK AFNI, FSL, NILEARN FOR 3D RESAMPLING (INTENDED VOXEL 4MM ISOTROPIC)
+# https://afni.nimh.nih.gov/pub/dist/doc/program_help/3dresample.html
+# http://imaging.mrc-cbu.cam.ac.uk/imaging/Introduction_to_fMRI_2010?action=AttachFile&do=get&target=Intro_fMRI_2010_01_preprocessing.pdf
 
 train_vectors = np.asarray(listed)
 test_vectors = np.asarray(listed_testing)
