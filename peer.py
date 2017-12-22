@@ -3,8 +3,6 @@
 
 # Screen size: 1680 x 1050 - from follow_the_dot_lastrun.py in ~/Desktop/HBN_Peer
 
-import os
-import sys
 import numpy as np
 import pandas as pd
 import nibabel as nib
@@ -14,17 +12,15 @@ from nilearn import plotting
 import matplotlib.pyplot as plt
 from sklearn.model_selection import GridSearchCV
 
-# DON'T FORGET MOTION CORRECTION BEFORE IMPORTING DATA
-
 monitor_width = 1680
 monitor_height = 1050
 
 # Import data
+
 img = nib.load('peer2_processed.nii.gz')
 data = img.get_data()
 testing = nib.load('peer1_processed.nii.gz')
 testing_data = testing.get_data()
-print(img.shape)
 
 # Vectorize data into single np array
 
@@ -46,13 +42,15 @@ for tr in range(int(data.shape[3])): # training with 5TRs from each fixation (av
 # CHECK AFNI, FSL, NILEARN FOR 3D RESAMPLING (INTENDED VOXEL 4MM ISOTROPIC)
 # https://afni.nimh.nih.gov/pub/dist/doc/program_help/3dresample.html
 # http://imaging.mrc-cbu.cam.ac.uk/imaging/Introduction_to_fMRI_2010?action=AttachFile&do=get&target=Intro_fMRI_2010_01_preprocessing.pdf
+# https://www.mathworks.com/help/images/ref/imresize3.html
+# https://stackoverflow.com/questions/30459950/downsampling-of-fmri-image-with-fsl
+# flirt -in PEER1.nii.gz -ref PEER1.nii.gz -out PEER1_resampled -applyisoxfm 4 COMMAND ON NED TERMINAL FOR FSL
 
 train_vectors = np.asarray(listed)
 test_vectors = np.asarray(listed_testing)
 
-averaged_train = [] # Should be converted back to np.array
-averaged_test = [] # Should be converted back to np.array after averaging
-
+averaged_train = []
+averaged_test = []
 for num in [i*5 for i in range(27)]:
 
     averaged_train.append(np.average(train_vectors[num:num+5], axis=0))
@@ -107,5 +105,3 @@ plt.xlabel('x-position')
 plt.ylabel('y-position')
 plt.title('Support Vector Regression - PEER')
 plt.show()
-
-
