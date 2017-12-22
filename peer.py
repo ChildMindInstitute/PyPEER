@@ -22,9 +22,9 @@ monitor_height = 1050
 
 # Import data
 
-img = nib.load('cPEER3_resampled.nii.gz')
+img = nib.load('aPEER1_resampled.nii.gz')
 data = img.get_data()
-testing = nib.load('cPEER1_resampled.nii.gz')
+testing = nib.load('aPEER3_resampled.nii.gz')
 testing_data = testing.get_data()
 
 # Vectorize data into single np array
@@ -32,8 +32,8 @@ testing_data = testing.get_data()
 listed = []
 listed_testing = []
 
-begin_slice = 2
-end_slice = 8
+begin_slice = 10
+end_slice = 18
 
 for tr in range(int(data.shape[3])): # training with 5TRs from each fixation (averaged or individual)
 # for tr in [i*5 for i in range(27)]: # training with one TR from each fixation
@@ -109,13 +109,18 @@ predicted_y = clfy.predict(test_vectors)
 
 plt.figure()
 
-for num in [i*5 for i in range(1)]:
-    plt.scatter(predicted_x[num:num+5], predicted_y[num:num+5], alpha=.5)
+# Used when each TR is a training sample
+# for num in [i*5 for i in range(27)]:
+#     plt.scatter(predicted_x[num:num+5], predicted_y[num:num+5], alpha=.5)
 
-plt.scatter(predicted_x[0], predicted_y[0], color='y')
-plt.scatter(predicted_x[1], predicted_y[1], color='r')
-plt.scatter(predicted_x[2], predicted_y[2], color='b')
-# plt.scatter(x_targets, y_targets, color='k', marker='x', alpha=1)
+# Used when 5TR averaging
+for num in range(27):
+    plt.scatter(predicted_x[num], predicted_y[num], alpha=.5)
+
+# plt.scatter(predicted_x[0], predicted_y[0], color='y')
+# plt.scatter(predicted_x[1], predicted_y[1], color='r')
+# plt.scatter(predicted_x[2], predicted_y[2], color='b')
+plt.scatter(x_targets, y_targets, color='k', marker='x', alpha=1)
 plt.xlabel('x-position')
 plt.ylabel('y-position')
 plt.title('Support Vector Regression - PEER')
