@@ -111,7 +111,11 @@ predicted_y = clfy.predict(test_vectors)
 
 # Plot SVR predictions against targets
 
-for num in range(0, 27):
+RMS_valuesx = []
+RMS_valuesy = []
+
+# for num in range(0, 27):
+for num in range(0, 5):
 
     plt.figure()
     axes = plt.gca()
@@ -121,9 +125,17 @@ for num in range(0, 27):
     nums = num * 5
 
     plt.scatter(x_targets[num], y_targets[num], color='k')
+    RMS_tempx = []
+    RMS_tempy = []
     for number in [nums, nums+1, nums+2, nums+3, nums+4]:
         plt.scatter(predicted_x[number], predicted_y[number])
         print(number)
+        RMS_tempx.append((predicted_x[number]-x_targets[num])**2)
+        RMS_tempy.append((predicted_y[number]-y_targets[num])**2)
+
+    RMS_valuesx.append((np.average(np.array(RMS_tempx))/5)**.5)
+    RMS_valuesy.append((np.average(np.array(RMS_tempy))/5)**.5)
+    print((RMS_valuesx, RMS_valuesy))
 
     plt.show()
 
@@ -140,17 +152,17 @@ for num in range(0, 27):
 # plt.scatter(predicted_x, predicted_y)
 
 # Plot individual targets
-for num in range(len(x_targets)):
-    plt.figure()
-    axes = plt.gca()
-    axes.set_xlim([-1200, 1200])
-    axes.set_ylim([-600, 600])
-    plt.scatter(x_targets[num], y_targets[num])
-    plt.scatter(predicted_x[num], predicted_y[num])
-    print((x_targets[num] - predicted_x[num]) / x_targets[num])
-    print((y_targets[num] - predicted_y[num]) / y_targets[num])
-
-plt.xlabel('x-position')
-plt.ylabel('y-position')
-plt.title('Support Vector Regression - PEER')
-plt.show()
+# for num in range(len(x_targets)):
+#     plt.figure()
+#     axes = plt.gca()
+#     axes.set_xlim([-1200, 1200])
+#     axes.set_ylim([-600, 600])
+#     plt.scatter(x_targets[num], y_targets[num])
+#     plt.scatter(predicted_x[num], predicted_y[num])
+#     print((x_targets[num] - predicted_x[num]) / x_targets[num])
+#     print((y_targets[num] - predicted_y[num]) / y_targets[num])
+#
+# plt.xlabel('x-position')
+# plt.ylabel('y-position')
+# plt.title('Support Vector Regression - PEER')
+# plt.show()
