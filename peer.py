@@ -32,14 +32,18 @@ testing_data = testing.get_data()
 listed = []
 listed_testing = []
 
-begin_slice = 10
-end_slice = 18
+x_begin_slice = 15
+x_end_slice = 40
+y_begin_slice = 2
+y_end_slice = 12
+z_begin_slice = 10
+z_end_slice = 18
 
 for tr in range(int(data.shape[3])): # training with 5TRs from each fixation (averaged or individual)
 # for tr in [i*5 for i in range(27)]: # training with one TR from each fixation
 
-    tr_data = data[:, :, begin_slice:end_slice, tr]
-    te_data = testing_data[:, :, begin_slice:end_slice, tr]
+    tr_data = data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
+    te_data = testing_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
 
     # tr_data = data[:, :, 18:25, tr]
     # tr_data = data[:, :, 15:30, tr]
@@ -69,7 +73,7 @@ for num in [i*5 for i in range(27)]:
     averaged_test.append(np.average(test_vectors[num:num+5], axis=0))
 
 train_vectors = np.asarray(averaged_train)
-test_vectors = np.asarray(averaged_test)
+# test_vectors = np.asarray(averaged_test)
 
 # Create np array that contains all fixation locations, separated by x and y coordinates
 
@@ -86,13 +90,13 @@ y_targets = np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2
 
 # Build classifiers with variable hyperparameters
 
-classifier = SVR(kernel='linear', C=100, epsilon=.001)
-# Validationg
-validation_x = classifier.fit(train_vectors, x_targets).predict(train_vectors)
-validation_y = classifier.fit(train_vectors, y_targets).predict(train_vectors)
-# Testing
-predicted_x = classifier.fit(train_vectors, x_targets).predict(test_vectors)
-predicted_y = classifier.fit(train_vectors, y_targets).predict(test_vectors)
+# classifier = SVR(kernel='linear', C=100, epsilon=.001)
+# # Validationg
+# validation_x = classifier.fit(train_vectors, x_targets).predict(train_vectors)
+# validation_y = classifier.fit(train_vectors, y_targets).predict(train_vectors)
+# # Testing
+# predicted_x = classifier.fit(train_vectors, x_targets).predict(test_vectors)
+# predicted_y = classifier.fit(train_vectors, y_targets).predict(test_vectors)
 
 GS_model = SVR()
 parameters = {'kernel': ('linear', 'rbf', 'poly', 'sigmoid'), 'C': [100, 200, 300, 400, 500, 1000, 2500, 5000, 10000],
@@ -107,20 +111,45 @@ predicted_y = clfy.predict(test_vectors)
 
 # Plot SVR predictions against targets
 
-plt.figure()
+for num in range(0, 27):
+
+    plt.figure()
+    axes = plt.gca()
+    axes.set_xlim([-1200, 1200])
+    axes.set_ylim([-600, 600])
+
+    nums = num * 5
+
+    plt.scatter(x_targets[num], y_targets[num], color='k')
+    for number in [nums, nums+1, nums+2, nums+3, nums+4]:
+        plt.scatter(predicted_x[number], predicted_y[number])
+        print(number)
+
+    plt.show()
 
 # Used when each TR is a training sample
 # for num in [i*5 for i in range(27)]:
 #     plt.scatter(predicted_x[num:num+5], predicted_y[num:num+5], alpha=.5)
 
 # Used when 5TR averaging
-for num in range(27):
-    plt.scatter(predicted_x[num], predicted_y[num], alpha=.5)
+# for num in range(27):
+#     plt.scatter(predicted_x[num], predicted_y[num], alpha=.5)
 
-# plt.scatter(predicted_x[0], predicted_y[0], color='y')
-# plt.scatter(predicted_x[1], predicted_y[1], color='r')
-# plt.scatter(predicted_x[2], predicted_y[2], color='b')
-plt.scatter(x_targets, y_targets, color='k', marker='x', alpha=1)
+# Plot all targets
+# plt.scatter(x_targets, y_targets, color='k', marker='x', alpha=1)
+# plt.scatter(predicted_x, predicted_y)
+
+# Plot individual targets
+for num in range(len(x_targets)):
+    plt.figure()
+    axes = plt.gca()
+    axes.set_xlim([-1200, 1200])
+    axes.set_ylim([-600, 600])
+    plt.scatter(x_targets[num], y_targets[num])
+    plt.scatter(predicted_x[num], predicted_y[num])
+    print((x_targets[num] - predicted_x[num]) / x_targets[num])
+    print((y_targets[num] - predicted_y[num]) / y_targets[num])
+
 plt.xlabel('x-position')
 plt.ylabel('y-position')
 plt.title('Support Vector Regression - PEER')
