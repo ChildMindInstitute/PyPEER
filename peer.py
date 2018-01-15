@@ -17,7 +17,15 @@ monitor_height = 1050
 
 # Import data
 
-set = 'b'
+set = 'v3_e'
+
+params = pd.read_excel('subj_params.xlsx', index_col='Subject', dtype=object)
+x_begin_slice = params.loc[set, 'x_start']
+x_end_slice = params.loc[set, 'x_end']
+y_begin_slice = params.loc[set, 'y_start']
+y_end_slice = params.loc[set, 'y_end']
+z_begin_slice = params.loc[set, 'z_start']
+z_end_slice = params.loc[set, 'z_end']
 
 training1 = nib.load(set + 'PEER1_resampled.nii.gz')
 training2 = nib.load(set + 'PEER3_resampled.nii.gz')
@@ -25,28 +33,6 @@ testing = nib.load(set + 'PEER2_resampled.nii.gz')
 training1_data = training1.get_data()
 training2_data = training2.get_data()
 testing_data = testing.get_data()
-
-if set == 'a':
-    x_begin_slice = 15
-    x_end_slice = 40
-    y_begin_slice = 2
-    y_end_slice = 12
-    z_begin_slice = 10
-    z_end_slice = 18
-elif set == 'b':
-    x_begin_slice = 15
-    x_end_slice = 39
-    y_begin_slice = 6
-    y_end_slice = 13
-    z_begin_slice = 3
-    z_end_slice = 8
-elif set == 'c':
-    x_begin_slice = 10
-    x_end_slice = 38
-    y_begin_slice = 6
-    y_end_slice = 13
-    z_begin_slice = 2
-    z_end_slice = 8
 
 # Vectorize data into single np array
 
@@ -110,29 +96,29 @@ y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2,
 # for num in [0, 50]:
 #     visual = image.index_img(testing, num)
 #     slice_data = visual.get_data()[:, :, 15:30]
-#     plotting.plot_stat_map(visual)
+#     plotting.plot_stat_map(visual)a
 #     plotting.show()
 
 # # Manual Model
-# clfx = SVR(kernel='linear', C=10000, epsilon=.0001)
+# clfx = SVR(kernel='linear', C=100, epsilon=.001)
 # clfx.fit(train_vectors, x_targets)
-# clfy = SVR(kernel='linear', C=10000, epsilon=.0001)
+# clfy = SVR(kernel='linear', C=100, epsilon=.001)
 # clfy.fit(train_vectors, y_targets)
 # predicted_x = clfx.predict(test_vectors)
 # predicted_y = clfy.predict(test_vectors)
 
 # GridSearch Model
 GS_model = SVR(kernel='linear')
-parameters = {'kernel': ('linear', 'sigmoid'), 'C': [10, 50, 100, 200, 300,
-                                                                    400, 500, 1000, 2500, 5000, 10000],
+parameters = {'kernel': ('linear', 'poly'), 'C': [100, 1000, 2500, 5000, 10000],
               'epsilon': [.01, .005, .001]}
 clfx = GridSearchCV(GS_model, parameters)
 clfx.fit(train_vectors, x_targets)
 clfy = GridSearchCV(GS_model, parameters)
 clfy.fit(train_vectors, y_targets)
-
 predicted_x = clfx.predict(test_vectors)
 predicted_y = clfy.predict(test_vectors)
+print(predicted_x)
+print(predicted_y)
 
 # Plot SVR predictions against targets
 
@@ -148,8 +134,8 @@ for num in range(27):
         subplot_i += 1
         plt.subplot(5, 5, subplot_i)
         axes = plt.gca()
-        axes.set_xlim([-1200, 1200])
-        axes.set_ylim([-900, 900])
+        axes.set_xlim([-1500, 1500])
+        axes.set_ylim([-1200, 1200])
         plt.scatter(x_targets[num], y_targets[num], color='k', marker='x')
         plt.scatter(predicted_x[nums:nums+5], predicted_y[nums:nums+5], s=5)
 
@@ -157,8 +143,8 @@ for num in range(27):
 
         plt.subplot(5, 5, 1)
         axes = plt.gca()
-        axes.set_xlim([-1200, 1200])
-        axes.set_ylim([-900, 900])
+        axes.set_xlim([-1500, 1500])
+        axes.set_ylim([-1200, 1200])
         plt.scatter(x_targets[num], y_targets[num], color='k', marker='x')
         plt.scatter(predicted_x[nums:nums+5], predicted_y[nums:nums+5], s=5)
 
