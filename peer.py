@@ -18,7 +18,7 @@ monitor_height = 1050
 # #############################################################################
 # Import data
 
-set = '5075903_mc'
+set = 'n5075903'
 
 params = pd.read_excel('subj_params.xlsx', index_col='Subject', dtype=object)
 x_begin_slice = params.loc[set, 'x_start']
@@ -92,26 +92,26 @@ y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2,
 # #############################################################################
 # Create SVR Model
 
-# Manual Model
-clfx = SVR(kernel='linear', C=100, epsilon=.001)
-clfx.fit(train_vectors, x_targets)
-clfy = SVR(kernel='linear', C=100, epsilon=.001)
-clfy.fit(train_vectors, y_targets)
-predicted_x = clfx.predict(test_vectors)
-predicted_y = clfy.predict(test_vectors)
-
-# # GridSearch Model
-# GS_model = SVR(kernel='linear')
-# parameters = {'kernel': ('linear', 'poly'), 'C': [100, 1000, 2500, 5000, 10000],
-#               'epsilon': [.01, .005, .001]}
-# clfx = GridSearchCV(GS_model, parameters)
+# # Manual Model
+# clfx = SVR(kernel='linear', C=100, epsilon=.001)
 # clfx.fit(train_vectors, x_targets)
-# clfy = GridSearchCV(GS_model, parameters)
+# clfy = SVR(kernel='linear', C=100, epsilon=.001)
 # clfy.fit(train_vectors, y_targets)
 # predicted_x = clfx.predict(test_vectors)
 # predicted_y = clfy.predict(test_vectors)
-# print(predicted_x)
-# print(predicted_y)
+
+# GridSearch Model
+GS_model = SVR(kernel='linear')
+parameters = {'kernel': ('linear', 'poly'), 'C': [100, 1000, 2500, 5000, 10000],
+              'epsilon': [.01, .005, .001]}
+clfx = GridSearchCV(GS_model, parameters)
+clfx.fit(train_vectors, x_targets)
+clfy = GridSearchCV(GS_model, parameters)
+clfy.fit(train_vectors, y_targets)
+predicted_x = clfx.predict(test_vectors)
+predicted_y = clfy.predict(test_vectors)
+print(predicted_x)
+print(predicted_y)
 
 # #############################################################################
 # Plot SVR predictions against targets
@@ -149,21 +149,22 @@ plt.show()
 
 # #############################################################################
 # Plot SVM weights as heatmap (one participant at a time since number of features is variable)
+# Only works for manual model (linear kernel) - GridSearch does not output weights
 
-plt.rcParams["figure.figsize"] = 10,2
-
-x = np.linspace(1, 1470, 1470)
-y = clfx.coef_[0]
-
-fig, ax = plt.subplots(nrows=1, sharex=True)
-
-extent = [x[0]-(x[1]-x[0])/2., x[-1]+(x[1]-x[0])/2.,0,1]
-im = ax.imshow(y[np.newaxis,:], cmap="plasma", aspect="auto", extent=extent)
-ax.set_yticks([])
-ax.set_xlim(extent[0], extent[1])
-
-plt.colorbar(im)
-plt.tight_layout()
-plt.title('Heatmap of SVR weights')
-plt.xlabel('Features')
-plt.show()
+# plt.rcParams["figure.figsize"] = 8, 2
+#
+# x = np.linspace(1, len(clfx.coef_[0]), len(clfx.coef_[0]))
+# y = clfx.coef_[0]
+#
+# fig, ax = plt.subplots(nrows=1)
+#
+# extent = [x[0]-(x[1]-x[0])/2., x[-1]+(x[1]-x[0])/2.,0,1]
+# im = ax.imshow(y[np.newaxis,:], cmap="plasma", aspect="auto", extent=extent)
+# ax.set_yticks([])
+# ax.set_xlim(extent[0], extent[1])
+#
+# plt.colorbar(im)
+# plt.tight_layout()
+# plt.title('Heatmap of SVR weights')
+# plt.xlabel('Features')
+# plt.show()
