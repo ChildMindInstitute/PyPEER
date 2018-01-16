@@ -15,9 +15,10 @@ from sklearn.model_selection import GridSearchCV
 monitor_width = 1680
 monitor_height = 1050
 
+# #############################################################################
 # Import data
 
-set = 'v3_e'
+set = 'n5075903'
 
 params = pd.read_excel('subj_params.xlsx', index_col='Subject', dtype=object)
 x_begin_slice = params.loc[set, 'x_start']
@@ -34,14 +35,15 @@ training1_data = training1.get_data()
 training2_data = training2.get_data()
 testing_data = testing.get_data()
 
+# #############################################################################
 # Vectorize data into single np array
 
 listed1 = []
 listed2 = []
 listed_testing = []
 
-for tr in range(int(training1_data.shape[3])): # training with 5TRs from each fixation (averaged or individual)
-# for tr in [i*5 for i in range(27)]: # training with one TR from each fixation
+for tr in range(int(training1_data.shape[3])):
+
 
     tr_data1 = training1_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
     tr_data2 = training2_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
@@ -53,17 +55,11 @@ for tr in range(int(training1_data.shape[3])): # training with 5TRs from each fi
     listed2.append(vectorized2)
     listed_testing.append(vectorized_testing)
 
-# CHECK AFNI, FSL, NILEARN FOR 3D RESAMPLING (INTENDED VOXEL 4MM ISOTROPIC)
-# https://afni.nimh.nih.gov/pub/dist/doc/program_help/3dresample.html
-# http://imaging.mrc-cbu.cam.ac.uk/imaging/Introduction_to_fMRI_2010?action=AttachFile&do=get&target=Intro_fMRI_2010_01_preprocessing.pdf
-# https://www.mathworks.com/help/images/ref/imresize3.html
-# https://stackoverflow.com/questions/30459950/downsampling-of-fmri-image-with-fsl
-# flirt -in PEER1.nii.gz -ref PEER1.nii.gz -out PEER1_resampled -applyisoxfm 4 COMMAND ON NED TERMINAL FOR FSL
-
 train_vectors1 = np.asarray(listed1)
 train_vectors2 = np.asarray(listed2)
 test_vectors = np.asarray(listed_testing)
 
+# #############################################################################
 # Averaging training signal
 
 averaged_train1 = []
@@ -84,7 +80,8 @@ else:
 
 # test_vectors = np.asarray(averaged_test)
 
-# Create np array that contains all fixation locations, separated by x and y coordinates
+# #############################################################################
+# Import coordinates for fixations
 
 fixations = pd.read_csv('stim_vals.csv')
 # x_targets = np.repeat(np.array(fixations['pos_x']), 1)*monitor_width/2
@@ -92,12 +89,8 @@ fixations = pd.read_csv('stim_vals.csv')
 x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1)*monitor_width/2, 2)
 y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2, 2)
 
-# # For visualization
-# for num in [0, 50]:
-#     visual = image.index_img(testing, num)
-#     slice_data = visual.get_data()[:, :, 15:30]
-#     plotting.plot_stat_map(visual)a
-#     plotting.show()
+# #############################################################################
+# Create SVR Model
 
 # # Manual Model
 # clfx = SVR(kernel='linear', C=100, epsilon=.001)
@@ -120,6 +113,7 @@ predicted_y = clfy.predict(test_vectors)
 print(predicted_x)
 print(predicted_y)
 
+# #############################################################################
 # Plot SVR predictions against targets
 
 plt.figure(figsize=(10, 10))
