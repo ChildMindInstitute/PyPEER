@@ -3,6 +3,8 @@
 
 # Screen size: 1680 x 1050 - from follow_the_dot_lastrun.py in ~/Desktop/HBN_Peer
 
+data_path = '/home/json/Desktop/PEER_bash/sub-5072755/'
+
 import os
 import numpy as np
 import pandas as pd
@@ -19,7 +21,7 @@ monitor_height = 1050
 # #############################################################################
 # Import data
 
-set = 'n5979692'
+set = 'n5072755'
 
 params = pd.read_excel('subj_params.xlsx', index_col='Subject', dtype=object)
 x_begin_slice = params.loc[set, 'x_start']
@@ -29,9 +31,9 @@ y_end_slice = params.loc[set, 'y_end']
 z_begin_slice = params.loc[set, 'z_start']
 z_end_slice = params.loc[set, 'z_end']
 
-training1 = nib.load(set + 'PEER1_resampled.nii.gz')
-training2 = nib.load(set + 'PEER3_resampled.nii.gz')
-testing = nib.load(set + 'PEER2_resampled.nii.gz')
+training1 = nib.load(data_path + 'PEER1_resampled.nii.gz')
+training2 = nib.load(data_path + 'PEER3_resampled.nii.gz')
+testing = nib.load(data_path + 'PEER2_resampled.nii.gz')
 training1_data = training1.get_data()
 training2_data = training2.get_data()
 testing_data = testing.get_data()
@@ -146,7 +148,7 @@ for num in range(27):
     else:
         continue
 
-plt.savefig(os.path.join('/Users/jake.son/PycharmProjects/PEER/Figures', set + '.png'), bbox_inches='tight', dpi=600)
+# plt.savefig(os.path.join('/Users/jake.son/PycharmProjects/PEER/Figures', set + '.png'), bbox_inches='tight', dpi=600)
 plt.show()
 
 # #############################################################################
