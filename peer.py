@@ -3,6 +3,7 @@
 
 # Screen size: 1680 x 1050 - from follow_the_dot_lastrun.py in ~/Desktop/HBN_Peer
 
+import os
 import numpy as np
 import pandas as pd
 import nibabel as nib
@@ -18,7 +19,7 @@ monitor_height = 1050
 # #############################################################################
 # Import data
 
-set = 'n5075903'
+set = 'n5979692'
 
 params = pd.read_excel('subj_params.xlsx', index_col='Subject', dtype=object)
 x_begin_slice = params.loc[set, 'x_start']
@@ -145,6 +146,7 @@ for num in range(27):
     else:
         continue
 
+plt.savefig(os.path.join('/Users/jake.son/PycharmProjects/PEER/Figures', set + '.png'), bbox_inches='tight', dpi=600)
 plt.show()
 
 # #############################################################################
