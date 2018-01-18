@@ -209,3 +209,6 @@ for set in ['sub-5076391']:
     x_error = np.sqrt(np.sum(np.array(x_res))/135)
     y_error = np.sqrt(np.sum(np.array(y_res))/135)
 
+    params.loc[set, 'x_error'] = x_error
+    params.loc[set, 'y_error'] = y_error
+
