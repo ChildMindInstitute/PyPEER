@@ -49,7 +49,7 @@ with open('subj_params.csv', 'a') as updated_params:
 params = pd.read_csv('subj_params.csv', index_col='Subject', dtype=object)
 subj_list = params.index.values.tolist()
 
-for set in subj_list:
+for set in ['sub-5072755']:
 
     x_begin_slice = int(params.loc[set, 'x_start'])
     x_end_slice = int(params.loc[set, 'x_end'])
@@ -61,11 +61,19 @@ for set in subj_list:
     print('Beginning analysis on participant ' + set)
 
     training1 = nib.load(data_path + set + '/PEER1_resampled.nii.gz')
-    training2 = nib.load(data_path + set + '/PEER3_resampled.nii.gz')
-    testing = nib.load(data_path + set + '/PEER2_resampled.nii.gz')
     training1_data = training1.get_data()
-    training2_data = training2.get_data()
+    testing = nib.load(data_path + set + '/PEER2_resampled.nii.gz')
     testing_data = testing.get_data()
+
+    try:
+
+        training2 = nib.load(data_path + set + '/PEER3_resampled.nii.gz')
+        training2_data = training2.get_data()
+        scan_count = 3
+
+    except:
+
+        scan_count = 2
 
     # #############################################################################
     # Vectorize data into single np array
@@ -77,18 +85,24 @@ for set in subj_list:
     for tr in range(int(training1_data.shape[3])):
 
         tr_data1 = training1_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
-        tr_data2 = training2_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
-        te_data = testing_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
         vectorized1 = np.array(tr_data1.ravel())
-        vectorized2 = np.array(tr_data2.ravel())
-        vectorized_testing = np.array(te_data.ravel())
         listed1.append(vectorized1)
-        listed2.append(vectorized2)
+
+        if scan_count == 3:
+
+            tr_data2 = training2_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
+            vectorized2 = np.array(tr_data2.ravel())
+            listed2.append(vectorized2)
+
+        te_data = testing_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
+        vectorized_testing = np.array(te_data.ravel())
         listed_testing.append(vectorized_testing)
 
     train_vectors1 = np.asarray(listed1)
-    train_vectors2 = np.asarray(listed2)
     test_vectors = np.asarray(listed_testing)
+
+    if scan_count == 3:
+        train_vectors2 = np.asarray(listed2)
 
     # #############################################################################
     # Averaging training signal
@@ -96,29 +110,27 @@ for set in subj_list:
     averaged_train1 = []
     averaged_train2 = []
     averaged_test = []
+
     for num in [i*5 for i in range(27)]:
 
         averaged_train1.append(np.average(train_vectors1[num:num+5], axis=0))
-        averaged_train2.append(np.average(train_vectors2[num:num+5], axis=0))
-        # averaged_test.append(np.average(test_vectors[num:num+5], axis=0))
 
-    if averaged_train2 == []:
+        if scan_count == 3:
+            averaged_train2.append(np.average(train_vectors2[num:num+5], axis=0))
+
+    if scan_count == 2:
         train_vectors = np.asarray(averaged_train1)
-        print('Has two valid PEER scans')
-    else:
+        print('Has ' + str(scan_count) + ' valid PEER scans')
+    elif scan_count == 3:
         train_vectors = np.asarray(averaged_train1 + averaged_train2)
-        print('Has three valid PEER scans')
-
-    # test_vectors = np.asarray(averaged_test)
+        print('Has ' + str(scan_count) + ' valid PEER scans')
 
     # #############################################################################
     # Import coordinates for fixations
 
     fixations = pd.read_csv('stim_vals.csv')
-    # x_targets = np.repeat(np.array(fixations['pos_x']), 1)*monitor_width/2
-    # y_targets = np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2
-    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1)*monitor_width/2, 2)
-    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2, 2)
+    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1)*monitor_width/2, scan_count-1)
+    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2, scan_count-1)
 
     # #############################################################################
     # Create SVR Model
