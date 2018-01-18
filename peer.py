@@ -11,9 +11,7 @@ import csv
 import numpy as np
 import pandas as pd
 import nibabel as nib
-from nilearn import image
 from sklearn.svm import SVR
-from nilearn import plotting
 import matplotlib.pyplot as plt
 from sklearn.model_selection import GridSearchCV
 
@@ -49,7 +47,7 @@ with open('subj_params.csv', 'a') as updated_params:
 params = pd.read_csv('subj_params.csv', index_col='Subject', dtype=object)
 subj_list = params.index.values.tolist()
 
-for set in ['sub-5072755']:
+for set in ['sub-5076391']:
 
     x_begin_slice = int(params.loc[set, 'x_start'])
     x_end_slice = int(params.loc[set, 'x_end'])
@@ -186,7 +184,28 @@ for set in ['sub-5072755']:
         else:
             continue
 
-    plt.savefig(os.path.join(output_path, set + '.png'), bbox_inches='tight', dpi=600)
+    # plt.savefig(os.path.join(output_path, set + '.png'), bbox_inches='tight', dpi=600)
     # plt.show()
 
     print('Completed participant ' + set)
+
+    # ###############################################################################
+    # Get error meaasurements
+
+    x_res = []
+    y_res = []
+
+    for num in range(27):
+
+        nums = num * 5
+
+        for values in range(5):
+
+            error_x = (abs(x_targets[num] - predicted_x[nums + values]))**2
+            error_y = (abs(y_targets[num] - predicted_y[nums + values]))**2
+            x_res.append(error_x)
+            y_res.append(error_y)
+
+    x_error = np.sqrt(np.sum(np.array(x_res))/135)
+    y_error = np.sqrt(np.sum(np.array(y_res))/135)
+
