@@ -23,25 +23,25 @@ monitor_height = 1050
 # #############################################################################
 # Update subject parameters sheet with new participants
 
-# params = pd.read_csv('subj_params.csv', index_col='Subject', dtype=object)
-# subj_list = params.index.values.tolist()
-#
-# x_b = 12
-# x_e = 40
-# y_b = 35
-# y_e = 50
-# z_b = 2
-# z_e = 13
-#
-# with open('subj_params.csv', 'a') as updated_params:
-#     writer = csv.writer(updated_params)
-#
-#     for subject in os.listdir(data_path):
-#         if any(subject in x for x in subj_list) and 'txt' not in subject:
-#             print(subject + ' is already in subj_params.csv')
-#         elif 'txt' not in subject:
-#             writer.writerow([subject, x_b, x_e, y_b, y_e, z_b, z_e])
-#             print('New participant ' + subject + ' was added')
+params = pd.read_csv('subj_params.csv', index_col='Subject', dtype=object)
+subj_list = params.index.values.tolist()
+
+x_b = 12
+x_e = 40
+y_b = 35
+y_e = 50
+z_b = 2
+z_e = 13
+
+with open('subj_params.csv', 'a') as updated_params:
+    writer = csv.writer(updated_params)
+
+    for subject in os.listdir(data_path):
+        if any(subject in x for x in subj_list) and 'txt' not in subject:
+            print(subject + ' is already in subj_params.csv')
+        elif 'txt' not in subject:
+            writer.writerow([subject, x_b, x_e, y_b, y_e, z_b, z_e])
+            print('New participant ' + subject + ' was added')
 
 # #############################################################################
 # Import data
@@ -178,25 +178,3 @@ for set in subj_list:
     # plt.show()
 
     print('Completed participant ' + set)
-
-# #############################################################################
-# Plot SVM weights as heatmap (one participant at a time since number of features is variable)
-# Only works for manual model (linear kernel) - GridSearch does not output weights
-
-# plt.rcParams["figure.figsize"] = 8, 2
-#
-# x = np.linspace(1, len(clfx.coef_[0]), len(clfx.coef_[0]))
-# y = clfx.coef_[0]
-#
-# fig, ax = plt.subplots(nrows=1)
-#
-# extent = [x[0]-(x[1]-x[0])/2., x[-1]+(x[1]-x[0])/2.,0,1]
-# im = ax.imshow(y[np.newaxis,:], cmap="plasma", aspect="auto", extent=extent)
-# ax.set_yticks([])
-# ax.set_xlim(extent[0], extent[1])
-#
-# plt.colorbar(im)
-# plt.tight_layout()
-# plt.title('Heatmap of SVR weights')
-# plt.xlabel('Features')
-# plt.show()
