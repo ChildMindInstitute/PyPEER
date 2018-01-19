@@ -1,11 +1,3 @@
-# #############################################################################
-# PEER testing for fMRI data
-
-# Screen size: 1680 x 1050 - from follow_the_dot_lastrun.py in ~/Desktop/HBN_Peer
-
-data_path = '/home/json/Desktop/PEER_bash/'
-output_path = '/home/json/Desktop/peer/Figures'
-
 import os
 import csv
 import numpy as np
@@ -15,13 +7,16 @@ from sklearn.svm import SVR
 import matplotlib.pyplot as plt
 from sklearn.model_selection import GridSearchCV
 
+data_path = '/home/json/Desktop/PEER_bash/'
+output_path = '/home/json/Desktop/peer/Figures'
+
 monitor_width = 1680
 monitor_height = 1050
 
 # #############################################################################
 # Update subject parameters sheet with new participants
 
-params = pd.read_csv('subj_params.csv', index_col='Subject', dtype=object)
+params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 subj_list = params.index.values.tolist()
 
 x_b = 12
@@ -44,10 +39,10 @@ with open('subj_params.csv', 'a') as updated_params:
 # #############################################################################
 # Import data
 
-params = pd.read_csv('subj_params.csv', index_col='Subject', dtype=object)
+params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 subj_list = params.index.values.tolist()
 
-for set in ['sub-5076391']:
+for set in ['sub-5072755']:
 
     x_begin_slice = int(params.loc[set, 'x_start'])
     x_end_slice = int(params.loc[set, 'x_end'])
@@ -167,8 +162,8 @@ for set in ['sub-5076391']:
             subplot_i += 1
             plt.subplot(5, 5, subplot_i)
             axes = plt.gca()
-            axes.set_xlim([-1500, 1500])
-            axes.set_ylim([-1200, 1200])
+            axes.set_xlim([-1000, 1000])
+            axes.set_ylim([-600, 600])
             plt.scatter(x_targets[num], y_targets[num], color='k', marker='x')
             plt.scatter(predicted_x[nums:nums+5], predicted_y[nums:nums+5], s=5)
 
@@ -176,8 +171,8 @@ for set in ['sub-5076391']:
 
             plt.subplot(5, 5, 1)
             axes = plt.gca()
-            axes.set_xlim([-1500, 1500])
-            axes.set_ylim([-1200, 1200])
+            axes.set_xlim([-1000, 1000])
+            axes.set_ylim([-600, 600])
             plt.scatter(x_targets[num], y_targets[num], color='k', marker='x')
             plt.scatter(predicted_x[nums:nums+5], predicted_y[nums:nums+5], s=5)
 
@@ -212,3 +207,4 @@ for set in ['sub-5076391']:
     params.loc[set, 'x_error'] = x_error
     params.loc[set, 'y_error'] = y_error
 
+params.to_csv('subj_params.csv')
