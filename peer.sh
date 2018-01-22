@@ -3,34 +3,35 @@
 data='/data2/HBNcore/CMI_HBN_Data/MRI/RU/data_Backup'
 outpath='/home/json/Desktop/PEER_bash'
 
-#rm command_list.txt
-#rm mri_template.txt
-#rm registration.txt
+rm $outpath/command_list.txt
+rm $outpath/mri_template.txt
+rm $outpath/registration.txt
 
 cd $data
 
 for sub in $(ls);do
 
-	if grep "$sub" "/home/json/Desktop/PEER_data/motion_test.txt"; then	
+	if grep "$sub" "/home/json/Desktop/PEER_data/testing_on_new.txt"; then	
 
-		echo $sub
+		num=0
 
 		for nifti_file in $(ls $data'/'$sub'/'func/*.nii.gz);do
 
 			if [[ $nifti_file == *"peer_run-1"* ]];then
-				echo found peer 1
 				echo -n "mcflirt -in $nifti_file -out $outpath/$sub/peer1_mcf.nii.gz" >> $outpath/command_list.txt
 				echo ";fslroi $outpath/$sub/peer1_mcf.nii.gz $outpath/$sub/template_1.nii.gz 67 1" >> $outpath/command_list.txt
+				num=$(($num + 1))
+				
 
 			elif [[ $nifti_file == *"peer_run-2"* ]];then
 				echo -n "mcflirt -in $nifti_file -out $outpath/$sub/peer2_mcf.nii.gz" >> $outpath/command_list.txt
 				echo ";fslroi $outpath/$sub/peer2_mcf.nii.gz $outpath/$sub/template_2.nii.gz 67 1" >> $outpath/command_list.txt
-				echo found peer 2
+				num=$(($num + 1))
 
 			elif [[ $nifti_file == *"peer_run-3"* ]];then
 				echo -n "mcflirt -in $nifti_file -out $outpath/$sub/peer3_mcf.nii.gz" >> $outpath/command_list.txt
 				echo ";fslroi $outpath/$sub/peer3_mcf.nii.gz $outpath/$sub/template_3.nii.gz 67 1" >> $outpath/command_list.txt
-				echo found peer 3
+				num=$(($num + 1))
 
 			fi
 
@@ -38,8 +39,15 @@ for sub in $(ls);do
 
 		mkdir $outpath'/'$sub
 
-	echo "echo $sub processing completed" >> $outpath/command_list.txt
-	echo "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz $outpath/$sub/template_3.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.
+	if [ "$num" -eq "2" ]; then
+		
+		echo "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.txt
+
+	elif [ "$num" -eq "3"]; then
+
+		echo "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz $outpath/$sub/template_3.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.txt
+
+	fi
 
 	fi
 

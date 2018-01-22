@@ -17,7 +17,7 @@ monitor_height = 1050
 # Update subject parameters sheet with new participants
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
-subj_list = params.index.values.tolist()
+sub_ref = params.index.values.tolist()
 
 x_b = 12
 x_e = 40
@@ -26,21 +26,23 @@ y_e = 50
 z_b = 2
 z_e = 13
 
+subj_list = []
+
 with open('subj_params.csv', 'a') as updated_params:
     writer = csv.writer(updated_params)
 
     for subject in os.listdir(data_path):
-        if any(subject in x for x in subj_list) and 'txt' not in subject:
+        if any(subject in x for x in sub_ref) and 'txt' not in subject:
             print(subject + ' is already in subj_params.csv')
         elif 'txt' not in subject:
             writer.writerow([subject, x_b, x_e, y_b, y_e, z_b, z_e])
             print('New participant ' + subject + ' was added')
+            subj_list.append(subject)
 
 # #############################################################################
 # Import data
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
-subj_list = params.index.values.tolist()
 
 for set in subj_list:
 
@@ -128,14 +130,6 @@ for set in subj_list:
     # #############################################################################
     # Create SVR Model
 
-    # # Manual Model
-    # clfx = SVR(kernel='linear', C=100, epsilon=.001)
-    # clfx.fit(train_vectors, x_targets)
-    # clfy = SVR(kernel='linear', C=100, epsilon=.001)
-    # clfy.fit(train_vectors, y_targets)
-    # predicted_x = clfx.predict(test_vectors)
-    # predicted_y = clfy.predict(test_vectors)
-
     # GridSearch Model
     GS_model = SVR(kernel='linear')
     parameters = {'kernel': ('linear', 'poly'), 'C': [100, 1000, 2500, 5000, 10000],
@@ -206,5 +200,4 @@ for set in subj_list:
 
     params.loc[set, 'x_error'] = x_error
     params.loc[set, 'y_error'] = y_error
-
-params.to_csv('subj_params.csv')
+    params.to_csv('subj_params.csv')
