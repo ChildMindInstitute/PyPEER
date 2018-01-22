@@ -42,7 +42,7 @@ with open('subj_params.csv', 'a') as updated_params:
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 subj_list = params.index.values.tolist()
 
-for set in ['sub-5072755']:
+for set in subj_list:
 
     x_begin_slice = int(params.loc[set, 'x_start'])
     x_end_slice = int(params.loc[set, 'x_end'])
@@ -162,8 +162,8 @@ for set in ['sub-5072755']:
             subplot_i += 1
             plt.subplot(5, 5, subplot_i)
             axes = plt.gca()
-            axes.set_xlim([-1000, 1000])
-            axes.set_ylim([-600, 600])
+            axes.set_xlim([-1500, 1500])
+            axes.set_ylim([-1200, 1200])
             plt.scatter(x_targets[num], y_targets[num], color='k', marker='x')
             plt.scatter(predicted_x[nums:nums+5], predicted_y[nums:nums+5], s=5)
 
@@ -171,15 +171,15 @@ for set in ['sub-5072755']:
 
             plt.subplot(5, 5, 1)
             axes = plt.gca()
-            axes.set_xlim([-1000, 1000])
-            axes.set_ylim([-600, 600])
+            axes.set_xlim([-1500, 1500])
+            axes.set_ylim([-1200, 1200])
             plt.scatter(x_targets[num], y_targets[num], color='k', marker='x')
             plt.scatter(predicted_x[nums:nums+5], predicted_y[nums:nums+5], s=5)
 
         else:
             continue
 
-    # plt.savefig(os.path.join(output_path, set + '.png'), bbox_inches='tight', dpi=600)
+    plt.savefig(os.path.join(output_path, set + '.png'), bbox_inches='tight', dpi=600)
     # plt.show()
 
     print('Completed participant ' + set)

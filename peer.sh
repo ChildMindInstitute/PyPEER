@@ -3,9 +3,9 @@
 data='/data2/HBNcore/CMI_HBN_Data/MRI/RU/data_Backup'
 outpath='/home/json/Desktop/PEER_bash'
 
-rm command_list.txt
-rm mri_template.txt
-rm registration.txt
+#rm command_list.txt
+#rm mri_template.txt
+#rm registration.txt
 
 cd $data
 
@@ -39,7 +39,7 @@ for sub in $(ls);do
 		mkdir $outpath'/'$sub
 
 	echo "echo $sub processing completed" >> $outpath/command_list.txt
-	echo "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz $outpath/$sub/template_3.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.txt
+	echo "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz $outpath/$sub/template_3.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.
 
 	fi
 
@@ -60,8 +60,10 @@ done
 
 cat registration.txt | parallel -j 25
 
+cd '/home/json/Desktop/peer'
 
+echo "Beginning python script for PEER"
 
-
+python3 peer.py
 
 
