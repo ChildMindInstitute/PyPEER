@@ -43,7 +43,7 @@ for sub in $(ls);do
 		
 		echo "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.txt
 
-	elif [ "$num" -eq "3"]; then
+	elif [ "$num" -eq "3" ]; then
 
 		echo "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz $outpath/$sub/template_3.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.txt
 

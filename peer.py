@@ -63,7 +63,7 @@ for set in subj_list:
     try:
 
         training2 = nib.load(data_path + set + '/PEER3_resampled.nii.gz')
-        training2_data = training2.get_data()
+        training2_data = training2.get_da
         scan_count = 3
 
     except:
@@ -201,3 +201,44 @@ for set in subj_list:
     params.loc[set, 'x_error'] = x_error
     params.loc[set, 'y_error'] = y_error
     params.to_csv('subj_params.csv')
+
+# #############################################################################
+# Visualize error vs motion
+
+params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
+
+num_part = 15
+
+x_error_list = params.loc[:, 'x_error'][:num_part].tolist()
+y_error_list = params.loc[:, 'y_error'][:num_part].tolist()
+mean_fd_list = params.loc[:, 'mean_fd'][:num_part].tolist()
+dvars_list = params.loc[:, 'dvars'][:num_part].tolist()
+
+x_error_list = np.array([float(x) for x in x_error_list])
+y_error_list = np.array([float(x) for x in y_error_list])
+mean_fd_list = np.array([float(x) for x in mean_fd_list])
+dvars_list = np.array([float(x) for x in dvars_list])
+
+m1, b1 = np.polyfit(mean_fd_list, x_error_list, 1)
+m2, b2 = np.polyfit(mean_fd_list, y_error_list, 1)
+m3, b3 = np.polyfit(dvars_list, x_error_list, 1)
+m4, b4 = np.polyfit(dvars_list, y_error_list, 1)
+
+plt.figure(figsize=(8, 8))
+plt.subplot(2, 2, 1)
+plt.title('mean_fd vs. x_RMS')
+plt.scatter(mean_fd_list, x_error_list, s=5)
+plt.plot(mean_fd_list, m1*mean_fd_list + b1, '-', color='r')
+plt.subplot(2, 2, 2)
+plt.title('mean_fd vs. y_RMS')
+plt.scatter(mean_fd_list, y_error_list, s=5)
+plt.plot(mean_fd_list, m2*mean_fd_list + b2, '-', color='r')
+plt.subplot(2, 2, 3)
+plt.title('dvars vs. x_RMS')
+plt.scatter(dvars_list, x_error_list, s=5)
+plt.plot(dvars_list, m3*dvars_list + b3, '-', color='r')
+plt.subplot(2, 2, 4)
+plt.title('dvars vs. y_RMS')
+plt.scatter(dvars_list, y_error_list, s=5)
+plt.plot(dvars_list, m4*dvars_list + b4, '-', color='r')
+plt.show()
