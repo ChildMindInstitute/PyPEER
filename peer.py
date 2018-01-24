@@ -5,6 +5,8 @@ import pandas as pd
 import nibabel as nib
 from sklearn.svm import SVR
 import matplotlib.pyplot as plt
+from sklearn import linear_model
+from nilearn.masking import compute_epi_mask
 from sklearn.model_selection import GridSearchCV
 
 data_path = '/home/json/Desktop/PEER_bash/'
@@ -44,7 +46,7 @@ with open('subj_params.csv', 'a') as updated_params:
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 
-for set in subj_list:
+for set in ['sub-5569790']:
 
     x_begin_slice = int(params.loc[set, 'x_start'])
     x_end_slice = int(params.loc[set, 'x_end'])
@@ -69,6 +71,38 @@ for set in subj_list:
     except:
 
         scan_count = 2
+
+    # #############################################################################
+    # Global Signal Regression
+
+    global_signal = []
+
+    for tr in range(int(training1_data.shape[3])):
+
+        roi = training1_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
+        GS = np.average(roi)
+        global_signal.append(GS)
+
+    # Regress individual voxels
+
+    model_parameters = []
+
+    for x in range(int(training1_data.shape[0])):
+        for y in range(int(training1_data.shape[1])):
+            for z in range(int(training1_data.shape[2])):
+                for tr in range(int(training1_data.shape[3])):
+                    original = training1_data[x, y, z, :]
+                    reg_model = linear_model.LinearRegression()
+                    reg_model.fit([[x] for x in original], np.repeat(global_signal[tr], training1_data.shape[3]))
+                    model_parameters.append([reg_model.intercept_, reg_model.coef_])
+
+
+    # reg.fit(x, y)
+    # model_parameters.append([reg_model.intercept_, reg_model.coef_])
+
+    # Modify original nifti file for desired output with regressed voxel intensity values or reconstruct new nifti file
+
+
 
     # #############################################################################
     # Vectorize data into single np array
@@ -173,7 +207,7 @@ for set in subj_list:
         else:
             continue
 
-    plt.savefig(os.path.join(output_path, set + '.png'), bbox_inches='tight', dpi=600)
+    # plt.savefig(os.path.join(output_path, set + '.png'), bbox_inches='tight', dpi=600)
     # plt.show()
 
     print('Completed participant ' + set)
