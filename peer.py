@@ -10,6 +10,7 @@ from nilearn.masking import compute_epi_mask
 from sklearn.model_selection import GridSearchCV
 
 data_path = '/home/json/Desktop/PEER_bash/'
+qap_path = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/QAP/qap_functional_temporal.csv'
 output_path = '/home/json/Desktop/peer/Figures'
 
 monitor_width = 1680
@@ -20,6 +21,10 @@ monitor_height = 1050
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 sub_ref = params.index.values.tolist()
+
+qap = pd.read_csv(qap_path, dtype=object)
+qap['Participant'] = qap['Participant'].str.replace('_', '-')
+# qap = qap.set_index('Participant')
 
 x_b = 12
 x_e = 40
@@ -46,7 +51,7 @@ with open('subj_params.csv', 'a') as updated_params:
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 
-for set in ['sub-5569790']:
+for set in ['sub-5351657']:
 
     x_begin_slice = int(params.loc[set, 'x_start'])
     x_end_slice = int(params.loc[set, 'x_end'])
@@ -65,7 +70,7 @@ for set in ['sub-5569790']:
     try:
 
         training2 = nib.load(data_path + set + '/PEER3_resampled.nii.gz')
-        training2_data = training2.get_da
+        training2_data = training2.get_data()
         scan_count = 3
 
     except:
@@ -75,26 +80,26 @@ for set in ['sub-5569790']:
     # #############################################################################
     # Global Signal Regression
 
-    global_signal = []
-
-    for tr in range(int(training1_data.shape[3])):
-
-        roi = training1_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
-        GS = np.average(roi)
-        global_signal.append(GS)
-
-    # Regress individual voxels
-
-    model_parameters = []
-
-    for x in range(int(training1_data.shape[0])):
-        for y in range(int(training1_data.shape[1])):
-            for z in range(int(training1_data.shape[2])):
-                for tr in range(int(training1_data.shape[3])):
-                    original = training1_data[x, y, z, :]
-                    reg_model = linear_model.LinearRegression()
-                    reg_model.fit([[x] for x in original], np.repeat(global_signal[tr], training1_data.shape[3]))
-                    model_parameters.append([reg_model.intercept_, reg_model.coef_])
+    # global_signal = []
+    #
+    # for tr in range(int(training1_data.shape[3])):
+    #
+    #     roi = training1_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
+    #     GS = np.average(roi)
+    #     global_signal.append(GS)
+    #
+    # # Regress individual voxels
+    #
+    # model_parameters = []
+    #
+    # for x in range(int(training1_data.shape[0])):
+    #     for y in range(int(training1_data.shape[1])):
+    #         for z in range(int(training1_data.shape[2])):
+    #             for tr in range(int(training1_data.shape[3])):
+    #                 original = training1_data[x, y, z, :]
+    #                 reg_model = linear_model.LinearRegression()
+    #                 reg_model.fit([[x] for x in original], np.repeat(global_signal[tr], training1_data.shape[3]))
+    #                 model_parameters.append([reg_model.intercept_, reg_model.coef_])
 
 
     # reg.fit(x, y)
@@ -207,13 +212,13 @@ for set in ['sub-5569790']:
         else:
             continue
 
-    # plt.savefig(os.path.join(output_path, set + '.png'), bbox_inches='tight', dpi=600)
+    plt.savefig(os.path.join(output_path, set + '.png'), bbox_inches='tight', dpi=600)
     # plt.show()
 
     print('Completed participant ' + set)
 
     # ###############################################################################
-    # Get error meaasurements
+    # Get error measurements
 
     x_res = []
     y_res = []
@@ -234,45 +239,72 @@ for set in ['sub-5569790']:
 
     params.loc[set, 'x_error'] = x_error
     params.loc[set, 'y_error'] = y_error
+
+    try:
+
+        fd1 = float(qap[qap['Participant'] == set][qap['Series'] == 'func_peer_run_1']['RMSD (Mean)'])
+        fd2 = float(qap[qap['Participant'] == set][qap['Series'] == 'func_peer_run_2']['RMSD (Mean)'])
+        fd3 = float(qap[qap['Participant'] == set][qap['Series'] == 'func_peer_run_3']['RMSD (Mean)'])
+        dv1 = float(qap[qap['Participant'] == set][qap['Series'] == 'func_peer_run_1']['Std. DVARS (Mean)'])
+        dv2 = float(qap[qap['Participant'] == set][qap['Series'] == 'func_peer_run_2']['Std. DVARS (Mean)'])
+        dv3 = float(qap[qap['Participant'] == set][qap['Series'] == 'func_peer_run_3']['Std. DVARS (Mean)'])
+
+        fd_score = np.average([fd1, fd2, fd3])
+        dvars_score = np.average([dv1, dv2, dv3])
+
+    except:
+
+        fd1 = float(qap[qap['Participant'] == set][qap['Series'] == 'func_peer_run_1']['RMSD (Mean)'])
+        fd2 = float(qap[qap['Participant'] == set][qap['Series'] == 'func_peer_run_2']['RMSD (Mean)'])
+        dv1 = float(qap[qap['Participant'] == set][qap['Series'] == 'func_peer_run_1']['Std. DVARS (Mean)'])
+        dv2 = float(qap[qap['Participant'] == set][qap['Series'] == 'func_peer_run_2']['Std. DVARS (Mean)'])
+
+        fd_score = np.average([[fd1, fd2]])
+        dvars_score = np.average([dv1, dv2])
+
+    params.loc[set, 'mean_fd'] = fd_score
+    params.loc[set, 'dvars'] = dvars_score
+    params.loc[set, 'scan_count'] = scan_count
+
     params.to_csv('subj_params.csv')
 
 # #############################################################################
 # Visualize error vs motion
 
-params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
-
-num_part = 15
-
-x_error_list = params.loc[:, 'x_error'][:num_part].tolist()
-y_error_list = params.loc[:, 'y_error'][:num_part].tolist()
-mean_fd_list = params.loc[:, 'mean_fd'][:num_part].tolist()
-dvars_list = params.loc[:, 'dvars'][:num_part].tolist()
-
-x_error_list = np.array([float(x) for x in x_error_list])
-y_error_list = np.array([float(x) for x in y_error_list])
-mean_fd_list = np.array([float(x) for x in mean_fd_list])
-dvars_list = np.array([float(x) for x in dvars_list])
-
-m1, b1 = np.polyfit(mean_fd_list, x_error_list, 1)
-m2, b2 = np.polyfit(mean_fd_list, y_error_list, 1)
-m3, b3 = np.polyfit(dvars_list, x_error_list, 1)
-m4, b4 = np.polyfit(dvars_list, y_error_list, 1)
-
-plt.figure(figsize=(8, 8))
-plt.subplot(2, 2, 1)
-plt.title('mean_fd vs. x_RMS')
-plt.scatter(mean_fd_list, x_error_list, s=5)
-plt.plot(mean_fd_list, m1*mean_fd_list + b1, '-', color='r')
-plt.subplot(2, 2, 2)
-plt.title('mean_fd vs. y_RMS')
-plt.scatter(mean_fd_list, y_error_list, s=5)
-plt.plot(mean_fd_list, m2*mean_fd_list + b2, '-', color='r')
-plt.subplot(2, 2, 3)
-plt.title('dvars vs. x_RMS')
-plt.scatter(dvars_list, x_error_list, s=5)
-plt.plot(dvars_list, m3*dvars_list + b3, '-', color='r')
-plt.subplot(2, 2, 4)
-plt.title('dvars vs. y_RMS')
-plt.scatter(dvars_list, y_error_list, s=5)
-plt.plot(dvars_list, m4*dvars_list + b4, '-', color='r')
-plt.show()
+# params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
+#
+# num_part = 15
+#
+# x_error_list = params.loc[:, 'x_error'][:num_part].tolist()
+# y_error_list = params.loc[:, 'y_error'][:num_part].tolist()
+# mean_fd_list = params.loc[:, 'mean_fd'][:num_part].tolist()
+# dvars_list = params.loc[:, 'dvars'][:num_part].tolist()
+#
+# x_error_list = np.array([float(x) for x in x_error_list])
+# y_error_list = np.array([float(x) for x in y_error_list])
+# mean_fd_list = np.array([float(x) for x in mean_fd_list])
+# dvars_list = np.array([float(x) for x in dvars_list])
+#
+# m1, b1 = np.polyfit(mean_fd_list, x_error_list, 1)
+# m2, b2 = np.polyfit(mean_fd_list, y_error_list, 1)
+# m3, b3 = np.polyfit(dvars_list, x_error_list, 1)
+# m4, b4 = np.polyfit(dvars_list, y_error_list, 1)
+#
+# plt.figure(figsize=(8, 8))
+# plt.subplot(2, 2, 1)
+# plt.title('mean_fd vs. x_RMS')
+# plt.scatter(mean_fd_list, x_error_list, s=5)
+# plt.plot(mean_fd_list, m1*mean_fd_list + b1, '-', color='r')
+# plt.subplot(2, 2, 2)
+# plt.title('mean_fd vs. y_RMS')
+# plt.scatter(mean_fd_list, y_error_list, s=5)
+# plt.plot(mean_fd_list, m2*mean_fd_list + b2, '-', color='r')
+# plt.subplot(2, 2, 3)
+# plt.title('dvars vs. x_RMS')
+# plt.scatter(dvars_list, x_error_list, s=5)
+# plt.plot(dvars_list, m3*dvars_list + b3, '-', color='r')
+# plt.subplot(2, 2, 4)
+# plt.title('dvars vs. y_RMS')
+# plt.scatter(dvars_list, y_error_list, s=5)
+# plt.plot(dvars_list, m4*dvars_list + b4, '-', color='r')
+# plt.show()

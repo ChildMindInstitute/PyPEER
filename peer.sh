@@ -41,11 +41,15 @@ for sub in $(ls);do
 
 	if [ "$num" -eq "2" ]; then
 		
-		echo "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.txt
+		echo -n "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.txt
+
+		echo ";echo $sub registration template complete" >> $outpath/mri_template.txt
 
 	elif [ "$num" -eq "3" ]; then
 
-		echo "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz $outpath/$sub/template_3.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.txt
+		echo -n "mri_robust_template --mov $outpath/$sub/template_1.nii.gz $outpath/$sub/template_2.nii.gz $outpath/$sub/template_3.nii.gz --template $outpath/$sub/mean.nii.gz --satit" >> $outpath/mri_template.txt
+
+		echo ";echo $sub registration template complete" >> $outpath/mri_template.txt
 
 	fi
 
@@ -60,9 +64,13 @@ cat mri_template.txt | parallel -j 25
 
 for sub in $(ls);do
 
-	echo "flirt -in $outpath/$sub/peer1_mcf.nii.gz -ref $outpath/$sub/'mean.nii.gz' -out $outpath/$sub/PEER1_resampled -applyisoxfm 4" >> $outpath/registration.txt
-	echo "flirt -in $outpath/$sub/peer2_mcf.nii.gz -ref $outpath/$sub/'mean.nii.gz' -out $outpath/$sub/PEER2_resampled -applyisoxfm 4" >> $outpath/registration.txt
-	echo "flirt -in $outpath/$sub/peer3_mcf.nii.gz -ref $outpath/$sub/'mean.nii.gz' -out $outpath/$sub/PEER3_resampled -applyisoxfm 4" >> $outpath/registration.txt
+	if grep "$sub" "/home/json/Desktop/PEER_data/testing_on_new.txt"; then
+
+		echo "flirt -in $outpath/$sub/peer1_mcf.nii.gz -ref $outpath/$sub/'mean.nii.gz' -out $outpath/$sub/PEER1_resampled -applyisoxfm 4" >> $outpath/registration.txt
+		echo "flirt -in $outpath/$sub/peer2_mcf.nii.gz -ref $outpath/$sub/'mean.nii.gz' -out $outpath/$sub/PEER2_resampled -applyisoxfm 4" >> $outpath/registration.txt
+		echo "flirt -in $outpath/$sub/peer3_mcf.nii.gz -ref $outpath/$sub/'mean.nii.gz' -out $outpath/$sub/PEER3_resampled -applyisoxfm 4" >> $outpath/registration.txt
+
+	fi
 
 done
 
