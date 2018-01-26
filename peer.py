@@ -5,12 +5,49 @@ import pandas as pd
 import nibabel as nib
 from sklearn.svm import SVR
 import matplotlib.pyplot as plt
-from sklearn import linear_model
-from nilearn.masking import compute_epi_mask
 from sklearn.model_selection import GridSearchCV
 
-# data_path = '/home/json/Desktop/PEER_bash/'
-data_path = '/data2/Projects/Jake/CBIC/'
+
+def gs_regress(data, xb, xe, yb, ye, zb, ze):
+
+    global_mask = np.zeros([data.shape[0], data.shape[1], data.shape[2]])
+
+    for x in range(int(global_mask.shape[0])):
+        for y in range(int(global_mask.shape[1])):
+            for z in range(int(global_mask.shape[2])):
+                if x in range(xb, xe) and y in range(yb, ye) and z in range(zb, ze):
+
+                    global_mask[x, y, z] = 1
+
+    global_mask = np.array(global_mask, dtype=bool)
+
+    regressor_map = {'constant': np.ones((data.shape[3], 1))}
+    regressor_map['global'] = data[global_mask].mean(0)
+
+    X = np.zeros((data.shape[3], 1))
+    csv_filename = ''
+
+    for rname, rval in regressor_map.items():
+        X = np.hstack((X, rval.reshape(rval.shape[0], -1)))
+        csv_filename += '_' + rname
+
+    X = X[:, 1:]
+
+    # csv_filename = csv_filename[1:]
+    # csv_filename += '.csv'
+    # csv_filename = os.path.join(os.getcwd(), csv_filename)
+    # np.savetxt(csv_filename, X, delimiter='\t')
+
+    Y = data[global_mask].T
+    B = np.linalg.inv(X.T.dot(X)).dot(X.T).dot(Y)
+
+    Y_res = Y - X.dot(B)
+
+    data[global_mask] = Y_res.T
+
+    return data
+
+data_path = '/data2/Projects/Jake/RU/'
 qap_path = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/QAP/qap_functional_temporal.csv'
 output_path = '/home/json/Desktop/peer/Figures'
 
@@ -27,12 +64,7 @@ qap = pd.read_csv(qap_path, dtype=object)
 qap['Participant'] = qap['Participant'].str.replace('_', '-')
 # qap = qap.set_index('Participant')
 
-x_b = 12
-x_e = 40
-y_b = 35
-y_e = 50
-z_b = 2
-z_e = 13
+x_b = 12; x_e = 40; y_b = 35; y_e = 50; z_b = 2; z_e = 13
 
 subj_list = []
 
@@ -52,14 +84,14 @@ with open('subj_params.csv', 'a') as updated_params:
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 
-for set in subj_list:
+for set in ['sub-5054883']:
 
-    x_begin_slice = int(params.loc[set, 'x_start'])
-    x_end_slice = int(params.loc[set, 'x_end'])
-    y_begin_slice = int(params.loc[set, 'y_start'])
-    y_end_slice = int(params.loc[set, 'y_end'])
-    z_begin_slice = int(params.loc[set, 'z_start'])
-    z_end_slice = int(params.loc[set, 'z_end'])
+    xb = int(params.loc[set, 'x_start'])
+    xe = int(params.loc[set, 'x_end'])
+    yb = int(params.loc[set, 'y_start'])
+    ye = int(params.loc[set, 'y_end'])
+    zb = int(params.loc[set, 'z_start'])
+    ze = int(params.loc[set, 'z_end'])
 
     try:
 
@@ -83,7 +115,16 @@ for set in subj_list:
         # #############################################################################
         # Global Signal Regression
 
-        
+        # if scan_count == 2:
+        #
+        #     training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
+        #     testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
+        #
+        # elif scan_count == 3:
+        #
+        #     training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
+        #     training2_data = gs_regress(training2_data, xb, xe, yb, ye, zb, ze)
+        #     testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
 
         # #############################################################################
         # Vectorize data into single np array
@@ -94,17 +135,17 @@ for set in subj_list:
 
         for tr in range(int(training1_data.shape[3])):
 
-            tr_data1 = training1_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
+            tr_data1 = training1_data[xb:xe, yb:ye, zb:ze, tr]
             vectorized1 = np.array(tr_data1.ravel())
             listed1.append(vectorized1)
 
             if scan_count == 3:
 
-                tr_data2 = training2_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
+                tr_data2 = training2_data[xb:xe, yb:ye, zb:ze, tr]
                 vectorized2 = np.array(tr_data2.ravel())
                 listed2.append(vectorized2)
 
-            te_data = testing_data[x_begin_slice:x_end_slice, y_begin_slice:y_end_slice, z_begin_slice:z_end_slice, tr]
+            te_data = testing_data[xb:xe, yb:ye, zb:ze, tr]
             vectorized_testing = np.array(te_data.ravel())
             listed_testing.append(vectorized_testing)
 
@@ -269,42 +310,42 @@ for set in subj_list:
 # #############################################################################
 # Visualize error vs motion
 
-params = pd.read_csv('subj_params.csv', index_col='subject')
-params = params[params['x_error'] < 1500][params['y_error'] < 1500][params['mean_fd'] < .35][params['dvars'] < 1.3]
-
-num_part = len(params)
-print(num_part)
-
-x_error_list = params.loc[:, 'x_error'][:num_part].tolist()
-y_error_list = params.loc[:, 'y_error'][:num_part].tolist()
-mean_fd_list = params.loc[:, 'mean_fd'][:num_part].tolist()
-dvars_list = params.loc[:, 'dvars'][:num_part].tolist()
-
-x_error_list = np.array([float(x) for x in x_error_list])
-y_error_list = np.array([float(x) for x in y_error_list])
-mean_fd_list = np.array([float(x) for x in mean_fd_list])
-dvars_list = np.array([float(x) for x in dvars_list])
-
-m1, b1 = np.polyfit(mean_fd_list, x_error_list, 1)
-m2, b2 = np.polyfit(mean_fd_list, y_error_list, 1)
-m3, b3 = np.polyfit(dvars_list, x_error_list, 1)
-m4, b4 = np.polyfit(dvars_list, y_error_list, 1)
-
-plt.figure(figsize=(8, 8))
-plt.subplot(2, 2, 1)
-plt.title('mean_fd vs. x_RMS')
-plt.scatter(mean_fd_list, x_error_list, s=5)
-plt.plot(mean_fd_list, m1*mean_fd_list + b1, '-', color='r')
-plt.subplot(2, 2, 2)
-plt.title('mean_fd vs. y_RMS')
-plt.scatter(mean_fd_list, y_error_list, s=5)
-plt.plot(mean_fd_list, m2*mean_fd_list + b2, '-', color='r')
-plt.subplot(2, 2, 3)
-plt.title('dvars vs. x_RMS')
-plt.scatter(dvars_list, x_error_list, s=5)
-plt.plot(dvars_list, m3*dvars_list + b3, '-', color='r')
-plt.subplot(2, 2, 4)
-plt.title('dvars vs. y_RMS')
-plt.scatter(dvars_list, y_error_list, s=5)
-plt.plot(dvars_list, m4*dvars_list + b4, '-', color='r')
-plt.show()
+# params = pd.read_csv('subj_params.csv', index_col='subject')
+# params = params[params['x_error'] < 1500][params['y_error'] < 1500][params['mean_fd'] < .35][params['dvars'] < 1.3]
+#
+# num_part = len(params)
+# print(num_part)
+#
+# x_error_list = params.loc[:, 'x_error'][:num_part].tolist()
+# y_error_list = params.loc[:, 'y_error'][:num_part].tolist()
+# mean_fd_list = params.loc[:, 'mean_fd'][:num_part].tolist()
+# dvars_list = params.loc[:, 'dvars'][:num_part].tolist()
+#
+# x_error_list = np.array([float(x) for x in x_error_list])
+# y_error_list = np.array([float(x) for x in y_error_list])
+# mean_fd_list = np.array([float(x) for x in mean_fd_list])
+# dvars_list = np.array([float(x) for x in dvars_list])
+#
+# m1, b1 = np.polyfit(mean_fd_list, x_error_list, 1)
+# m2, b2 = np.polyfit(mean_fd_list, y_error_list, 1)
+# m3, b3 = np.polyfit(dvars_list, x_error_list, 1)
+# m4, b4 = np.polyfit(dvars_list, y_error_list, 1)
+#
+# plt.figure(figsize=(8, 8))
+# plt.subplot(2, 2, 1)
+# plt.title('mean_fd vs. x_RMS')
+# plt.scatter(mean_fd_list, x_error_list, s=5)
+# plt.plot(mean_fd_list, m1*mean_fd_list + b1, '-', color='r')
+# plt.subplot(2, 2, 2)
+# plt.title('mean_fd vs. y_RMS')
+# plt.scatter(mean_fd_list, y_error_list, s=5)
+# plt.plot(mean_fd_list, m2*mean_fd_list + b2, '-', color='r')
+# plt.subplot(2, 2, 3)
+# plt.title('dvars vs. x_RMS')
+# plt.scatter(dvars_list, x_error_list, s=5)
+# plt.plot(dvars_list, m3*dvars_list + b3, '-', color='r')
+# plt.subplot(2, 2, 4)
+# plt.title('dvars vs. y_RMS')
+# plt.scatter(dvars_list, y_error_list, s=5)
+# plt.plot(dvars_list, m4*dvars_list + b4, '-', color='r')
+# plt.show()
