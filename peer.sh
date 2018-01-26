@@ -1,7 +1,6 @@
-# This script runs PEER on the participants of a given directory, assuming that they each have 3 PEER scans.
-
-data='/data2/HBNcore/CMI_HBN_Data/MRI/RU/data'
-outpath='/home/json/Desktop/PEER_bash'
+data='/data2/HBNcore/CMI_HBN_Data/MRI/CBIC/data'
+#outpath='/home/json/Desktop/PEER_bash'
+outpath='/data2/Projects/Jake/CBIC'
 
 rm $outpath/command_list.txt
 rm $outpath/mri_template.txt
@@ -62,22 +61,22 @@ done
 
 cd $outpath
 
-cat command_list.txt | parallel -j 25
-cat mri_template.txt | parallel -j 25
+cat command_list.txt | parallel -j 20
+cat mri_template.txt | parallel -j 20
 
 for sub in $(ls);do
 
-	if grep "$sub" "/home/json/Desktop/PEER_data/testing_on_new.txt"; then
+#	if grep "$sub" "/home/json/Desktop/PEER_data/testing_on_new.txt"; then
 
 		echo "flirt -in $outpath/$sub/peer1_mcf.nii.gz -ref $outpath/$sub/'mean.nii.gz' -out $outpath/$sub/PEER1_resampled -applyisoxfm 4" >> $outpath/registration.txt
 		echo "flirt -in $outpath/$sub/peer2_mcf.nii.gz -ref $outpath/$sub/'mean.nii.gz' -out $outpath/$sub/PEER2_resampled -applyisoxfm 4" >> $outpath/registration.txt
 		echo "flirt -in $outpath/$sub/peer3_mcf.nii.gz -ref $outpath/$sub/'mean.nii.gz' -out $outpath/$sub/PEER3_resampled -applyisoxfm 4" >> $outpath/registration.txt
 
-	fi
+#	fi
 
 done
 
-cat registration.txt | parallel -j 25
+cat registration.txt | parallel -j 20
 
 cd '/home/json/Desktop/peer'
 
