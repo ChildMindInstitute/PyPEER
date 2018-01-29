@@ -353,7 +353,7 @@ for set in ['sub-5773707']:
 # plt.show()
 
 # #############################################################################
-# Visualization for one participant
+# Visualization for one participant (per fixation)
 
 # plt.figure()
 # axes = plt.gca()
@@ -366,6 +366,8 @@ for set in ['sub-5773707']:
 #         plt.scatter(predicted_x[nums:nums+5], predicted_y[nums:nums+5])
 # plt.show()
 
+# #############################################################################
+# Visualization for one participant in each direction
 
 x_targets = np.repeat(np.array(fixations['pos_x']), 5)*monitor_width/2
 y_targets = np.repeat(np.array(fixations['pos_y']), 5)*monitor_height/2
@@ -373,12 +375,54 @@ y_targets = np.repeat(np.array(fixations['pos_y']), 5)*monitor_height/2
 time_series = range(0, 135)
 
 plt.figure()
+plt.subplot(2, 1, 1)
+plt.ylabel('Horizontal position')
+plt.plot(time_series, x_targets, '.-', color='k')
+plt.plot(time_series, predicted_x, '.-', color='b')
+plt.subplot(2, 1, 2)
 plt.ylabel('Vertical position')
+plt.xlabel('TR')
 plt.plot(time_series, y_targets, '.-', color='k')
 plt.plot(time_series, predicted_y, '.-', color='b')
-plt.savefig(os.path.join(output_path, 'y_dir.png'), bbox_inches='tight', dpi=600)
+# plt.savefig(os.path.join(output_path, 'y_dir.png'), bbox_inches='tight', dpi=600)
 plt.show()
 
+# #############################################################################
+# Histogram for RMSE distribution after outlier removal
 
+
+def remove_out(group):
+
+    temp = params[group][:350].tolist()
+    temp = [float(x) for x in temp]
+    temp_mean = np.array(temp).mean()
+    temp_stdv = np.array(temp).std()
+    cap = temp_mean + 3*temp_stdv
+
+    modified_group = [x for x in temp if 0 < x < cap]
+
+    return modified_group
+
+x_no_gsr = remove_out('x_error')
+y_no_gsr = remove_out('y_error')
+x_gsr = remove_out('x_error_gsr')
+y_gsr = remove_out('y_error_gsr')
+
+hist_x, bins_x = np.histogram(x_no_gsr)
+hist_y, bins_y = np.histogram(y_no_gsr)
+hist_x_gsr, bins_x_gsr = np.histogram(x_gsr)
+hist_y_gsr, bins_y_gsr = np.histogram(y_gsr)
+
+plt.figure()
+plt.title('Normalized histogram of RMSE')
+# plt.bar(bins_x[:-1], hist_x.astype(np.float32) / hist_x.sum(), width=(bins_x[1]-bins_x[0]), color='b', alpha=.5, label='No GSR')
+# plt.bar(bins_x_gsr[:-1], hist_x_gsr.astype(np.float32) / hist_x_gsr.sum(), width=(bins_x_gsr[1]-bins_x_gsr[0]), color='r', alpha=.5, label='GSR')
+plt.ylabel('Proportion')
+plt.xlabel('RMSE (y-direction)')
+plt.bar(bins_y[:-1], hist_y.astype(np.float32) / hist_y.sum(), width=(bins_y[1]-bins_y[0]), color='b', alpha=.5, label='No GSR')
+plt.bar(bins_y_gsr[:-1], hist_y_gsr.astype(np.float32) / hist_y_gsr.sum(), width=(bins_y_gsr[1]-bins_y_gsr[0]), color='r', alpha=.5, label='GSR')
+plt.legend()
+plt.savefig(os.path.join(output_path, 'y_dir_histogram'), bbox_inches='tight', dpi=600)
+plt.show()
 
 
