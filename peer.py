@@ -84,7 +84,9 @@ with open('subj_params.csv', 'a') as updated_params:
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 
-for set in ['sub-5054883']:
+ru_set = params.index.values.tolist()[:350]
+
+for set in ['sub-5773707']:
 
     xb = int(params.loc[set, 'x_start'])
     xe = int(params.loc[set, 'x_end'])
@@ -115,16 +117,16 @@ for set in ['sub-5054883']:
         # #############################################################################
         # Global Signal Regression
 
-        # if scan_count == 2:
-        #
-        #     training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
-        #     testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
-        #
-        # elif scan_count == 3:
-        #
-        #     training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
-        #     training2_data = gs_regress(training2_data, xb, xe, yb, ye, zb, ze)
-        #     testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
+        if scan_count == 2:
+
+            training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
+            testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
+
+        elif scan_count == 3:
+
+            training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
+            training2_data = gs_regress(training2_data, xb, xe, yb, ye, zb, ze)
+            testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
 
         # #############################################################################
         # Vectorize data into single np array
@@ -258,8 +260,8 @@ for set in ['sub-5054883']:
         x_error = np.sqrt(np.sum(np.array(x_res))/135)
         y_error = np.sqrt(np.sum(np.array(y_res))/135)
 
-        params.loc[set, 'x_error'] = x_error
-        params.loc[set, 'y_error'] = y_error
+        params.loc[set, 'x_error_gsr'] = x_error
+        params.loc[set, 'y_error_gsr'] = y_error
         params.loc[set, 'scan_count'] = scan_count
         params.to_csv('subj_params.csv')
 
@@ -311,7 +313,7 @@ for set in ['sub-5054883']:
 # Visualize error vs motion
 
 # params = pd.read_csv('subj_params.csv', index_col='subject')
-# params = params[params['x_error'] < 1500][params['y_error'] < 1500][params['mean_fd'] < .35][params['dvars'] < 1.3]
+# params = params[params['x_error'] < 50000][params['y_error'] < 50000][params['mean_fd'] < .30][params['dvars'] < 1.3]
 #
 # num_part = len(params)
 # print(num_part)
@@ -349,3 +351,34 @@ for set in ['sub-5054883']:
 # plt.scatter(dvars_list, y_error_list, s=5)
 # plt.plot(dvars_list, m4*dvars_list + b4, '-', color='r')
 # plt.show()
+
+# #############################################################################
+# Visualization for one participant
+
+# plt.figure()
+# axes = plt.gca()
+# axes.set_xlim([-1200, 1200])
+# axes.set_ylim([-900, 900])
+# for num in [0, 3, 5, 7, 10, 15, 21, 24]:
+#     nums = num * 5
+#     if num not in [18, 25]:
+#         plt.scatter(x_targets[num], y_targets[num], color='k', marker='x')
+#         plt.scatter(predicted_x[nums:nums+5], predicted_y[nums:nums+5])
+# plt.show()
+
+
+x_targets = np.repeat(np.array(fixations['pos_x']), 5)*monitor_width/2
+y_targets = np.repeat(np.array(fixations['pos_y']), 5)*monitor_height/2
+
+time_series = range(0, 135)
+
+plt.figure()
+plt.ylabel('Vertical position')
+plt.plot(time_series, y_targets, '.-', color='k')
+plt.plot(time_series, predicted_y, '.-', color='b')
+plt.savefig(os.path.join(output_path, 'y_dir.png'), bbox_inches='tight', dpi=600)
+plt.show()
+
+
+
+
