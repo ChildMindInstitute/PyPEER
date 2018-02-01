@@ -45,7 +45,7 @@ def gs_regress(data, xb, xe, yb, ye, zb, ze):
 
 def remove_out(group):
 
-    temp = params[group][:500].tolist()
+    temp = params[group][:-5].tolist()
     temp = [float(x) for x in temp]
     temp_mean = np.array(temp).mean()
     temp_stdv = np.array(temp).std()
@@ -76,7 +76,7 @@ def create_model(train_vectors, test_vectors, x_targets, y_targets):
     return predicted_x, predicted_y
 
 
-def scatter_plot(x_targets, y_targets, predicted_x, predicted_y, plot=False, save=False, show=False):
+def scatter_plot(x_targets, y_targets, predicted_x, predicted_y, plot=False, save=False):
 
     if plot:
 
@@ -112,14 +112,10 @@ def scatter_plot(x_targets, y_targets, predicted_x, predicted_y, plot=False, sav
         if save:
 
             plt.savefig(os.path.join(output_path, name + '.png'), bbox_inches='tight', dpi=600)
-
-        if show:
-
             plt.show()
-            print('show')
 
 
-def data_processing():
+def data_processing(scan_count, train_vectors1, train_vectors2):
 
     averaged_train1 = []
     averaged_train2 = []
@@ -140,7 +136,67 @@ def data_processing():
 
     return train_vectors
 
-data_path = '/data2/Projects/Jake/RU/'
+
+def rmse_hist(save=False):
+
+    params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
+
+    x_no_gsr = remove_out('x_error')
+    y_no_gsr = remove_out('y_error')
+    x_gsr = remove_out('x_error_gsr')
+    y_gsr = remove_out('y_error_gsr')
+
+    xbins = np.histogram(np.hstack((x_no_gsr, x_gsr)), bins=20)[1]
+    ybins = np.histogram(np.hstack((y_no_gsr, y_gsr)), bins=20)[1]
+
+    plt.figure()
+    plt.hist(x_no_gsr, xbins, color='r', alpha=.6, label='No GSR')
+    plt.hist(x_gsr, xbins, color='b', alpha=.4, label='GSR')
+    plt.title('RMSE distribution in the x-direction')
+    plt.ylabel('Number of participants')
+    plt.xlabel('RMSE (x-direction)')
+    plt.legend()
+
+    if save:
+
+        plt.savefig(os.path.join(output_path, 'x_dir_histogram'), bbox_inches='tight', dpi=600)
+
+    plt.figure()
+    plt.hist(y_no_gsr, ybins, color='r', alpha=.6, label='No GSR')
+    plt.hist(y_gsr, ybins, color='b', alpha=.4, label='GSR')
+    plt.legend()
+    plt.title('RMSE distribution in the y-direction')
+    plt.ylabel('Number of participants')
+    plt.xlabel('RMSE (y-direction)')
+
+    if save:
+
+        plt.savefig(os.path.join(output_path, 'y_dir_histogram'), bbox_inches='tight', dpi=600)
+
+    plt.show()
+
+
+def axis_plot(fixations, predicted_x, predicted_y):
+
+    x_targets = np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2
+    y_targets = np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2
+
+    time_series = range(0, len(x_targets))
+
+    plt.figure()
+    plt.subplot(2, 1, 1)
+    plt.ylabel('Horizontal position')
+    plt.plot(time_series, x_targets, '.-', color='k')
+    plt.plot(time_series, predicted_x, '.-', color='b')
+    plt.subplot(2, 1, 2)
+    plt.ylabel('Vertical position')
+    plt.xlabel('TR')
+    plt.plot(time_series, y_targets, '.-', color='k')
+    plt.plot(time_series, predicted_y, '.-', color='b')
+    # plt.savefig(os.path.join(output_path, 'y_dir.png'), bbox_inches='tight', dpi=600)
+    plt.show()
+
+data_path = '/data2/Projects/Jake/CBIC/'
 qap_path_RU = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/QAP/qap_functional_temporal.csv'
 qap_path_CBIC = '/data2/HBNcore/CMI_HBN_Data/MRI/CBIC/QAP/qap_functional_temporal.csv'
 output_path = '/home/json/Desktop/peer/Figures'
@@ -177,182 +233,207 @@ with open('subj_params.csv', 'a') as updated_params:
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 
-full_set = params.index.values.tolist()[350:]
+full_set = params.index.values.tolist()
 
-for name in ['sub-5378545']:
 
-    xb = int(params.loc[name, 'x_start'])
-    xe = int(params.loc[name, 'x_end'])
-    yb = int(params.loc[name, 'y_start'])
-    ye = int(params.loc[name, 'y_end'])
-    zb = int(params.loc[name, 'z_start'])
-    ze = int(params.loc[name, 'z_end'])
+def standard_peer(subject_list, gsr=True, update=False):
 
-    try:
+    for name in subject_list:
 
-        print('Beginning analysis on participant ' + name)
-
-        training1 = nib.load(data_path + name + '/PEER1_resampled.nii.gz')
-        training1_data = training1.get_data()
-        testing = nib.load(data_path + name + '/PEER2_resampled.nii.gz')
-        testing_data = testing.get_data()
+        xb = int(params.loc[name, 'x_start']); xe = int(params.loc[name, 'x_end'])
+        yb = int(params.loc[name, 'y_start']); ye = int(params.loc[name, 'y_end'])
+        zb = int(params.loc[name, 'z_start']); ze = int(params.loc[name, 'z_end'])
 
         try:
 
-            training2 = nib.load(data_path + name + '/PEER3_resampled.nii.gz')
-            training2_data = training2.get_data()
-            scan_count = 3
+            print('Beginning analysis on participant ' + name)
 
-        except:
+            training1 = nib.load(data_path + name + '/PEER1_resampled.nii.gz')
+            training1_data = training1.get_data()
+            testing = nib.load(data_path + name + '/PEER2_resampled.nii.gz')
+            testing_data = testing.get_data()
 
-            scan_count = 2
+            try:
 
-        # #############################################################################
-        # Global Signal Regression
+                training2 = nib.load(data_path + name + '/PEER3_resampled.nii.gz')
+                training2_data = training2.get_data()
+                scan_count = 3
 
-        # if scan_count == 2:
-        #
-        #     training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
-        #     testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
-        #
-        # elif scan_count == 3:
-        #
-        #     training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
-        #     training2_data = gs_regress(training2_data, xb, xe, yb, ye, zb, ze)
-        #     testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
+            except:
 
-        # #############################################################################
-        # Vectorize data into single np array
+                scan_count = 2
 
-        listed1 = []
-        listed2 = []
-        listed_testing = []
+            # #############################################################################
+            # Global Signal Regression
 
-        for tr in range(int(training1_data.shape[3])):
+            print('starting gsr')
 
-            tr_data1 = training1_data[xb:xe, yb:ye, zb:ze, tr]
-            vectorized1 = np.array(tr_data1.ravel())
-            listed1.append(vectorized1)
+            if gsr:
+
+                print('entered loop')
+
+                if scan_count == 2:
+
+                    print('count = 2')
+
+                    training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
+                    testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
+
+                elif scan_count == 3:
+
+                    print('count = 3')
+
+                    training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
+                    training2_data = gs_regress(training2_data, xb, xe, yb, ye, zb, ze)
+                    testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
+
+            # #############################################################################
+            # Vectorize data into single np array
+
+            listed1 = []
+            listed2 = []
+            listed_testing = []
+
+            print('beginning vectors')
+
+            for tr in range(int(training1_data.shape[3])):
+
+                tr_data1 = training1_data[xb:xe, yb:ye, zb:ze, tr]
+                vectorized1 = np.array(tr_data1.ravel())
+                listed1.append(vectorized1)
+
+                if scan_count == 3:
+
+                    tr_data2 = training2_data[xb:xe, yb:ye, zb:ze, tr]
+                    vectorized2 = np.array(tr_data2.ravel())
+                    listed2.append(vectorized2)
+
+                te_data = testing_data[xb:xe, yb:ye, zb:ze, tr]
+                vectorized_testing = np.array(te_data.ravel())
+                listed_testing.append(vectorized_testing)
+
+            train_vectors1 = np.asarray(listed1)
+            test_vectors = np.asarray(listed_testing)
+
+            if scan_count == 3:
+                train_vectors2 = np.asarray(listed2)
+
+            # #############################################################################
+            # Averaging training signal
+
+            print('average vectors')
+
+            train_vectors = data_processing(scan_count, train_vectors1, train_vectors2)
+
+            # #############################################################################
+            # Import coordinates for fixations
+
+            print('importing fixations')
+
+            fixations = pd.read_csv('stim_vals.csv')
+            x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1)*monitor_width/2, scan_count-1)
+            y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2, scan_count-1)
+
+            # #############################################################################
+            # Create SVR Model
+
+            predicted_x, predicted_y = create_model(train_vectors, test_vectors, x_targets, y_targets)
+
+            # #############################################################################
+            # Plot SVR predictions against targets
+
+            scatter_plot(x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False)
+            axis_plot(fixations, predicted_x, predicted_y)
+
+            print('Completed participant ' + name)
+
+            # ###############################################################################
+            # Get error measurements
+
+            x_res = []
+            y_res = []
+
+            for num in range(27):
+
+                nums = num * 5
+
+                for values in range(5):
+
+                    error_x = (abs(x_targets[num] - predicted_x[nums + values]))**2
+                    error_y = (abs(y_targets[num] - predicted_y[nums + values]))**2
+                    x_res.append(error_x)
+                    y_res.append(error_y)
+
+            x_error = np.sqrt(np.sum(np.array(x_res))/135)
+            y_error = np.sqrt(np.sum(np.array(y_res))/135)
+
+            params.loc[name, 'x_error_gsr'] = x_error
+            params.loc[name, 'y_error_gsr'] = y_error
+            params.loc[name, 'scan_count'] = scan_count
+
+            if update:
+                params.to_csv('subj_params.csv')
 
             if scan_count == 3:
 
-                tr_data2 = training2_data[xb:xe, yb:ye, zb:ze, tr]
-                vectorized2 = np.array(tr_data2.ravel())
-                listed2.append(vectorized2)
+                try:
 
-            te_data = testing_data[xb:xe, yb:ye, zb:ze, tr]
-            vectorized_testing = np.array(te_data.ravel())
-            listed_testing.append(vectorized_testing)
+                    fd1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['RMSD (Mean)'])
+                    fd2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['RMSD (Mean)'])
+                    fd3 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_3']['RMSD (Mean)'])
+                    dv1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['Std. DVARS (Mean)'])
+                    dv2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['Std. DVARS (Mean)'])
+                    dv3 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_3']['Std. DVARS (Mean)'])
 
-        train_vectors1 = np.asarray(listed1)
-        test_vectors = np.asarray(listed_testing)
+                    fd_score = np.average([fd1, fd2, fd3])
+                    dvars_score = np.average([dv1, dv2, dv3])
+                    params.loc[name, 'mean_fd'] = fd_score
+                    params.loc[name, 'dvars'] = dvars_score
 
-        if scan_count == 3:
-            train_vectors2 = np.asarray(listed2)
+                except:
 
-        # #############################################################################
-        # Averaging training signal
+                    print('Participant not found in QAP')
+
+            elif scan_count == 2:
+
+                try:
+
+                    fd1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['RMSD (Mean)'])
+                    fd2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['RMSD (Mean)'])
+                    dv1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['Std. DVARS (Mean)'])
+                    dv2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['Std. DVARS (Mean)'])
+
+                    fd_score = np.average([[fd1, fd2]])
+                    dvars_score = np.average([dv1, dv2])
+                    params.loc[name, 'mean_fd'] = fd_score
+                    params.loc[name, 'dvars'] = dvars_score
+
+                except:
+
+                    print('Participant not found in QAP')
+
+            if update:
+
+                params.to_csv('subj_params.csv')
+
+        except:
+
+            print('Error processing participant')
+
+standard_peer(['sub-5540614'], gsr=True, update=False)
 
 
-
-        train_vectors = data_processing()
-
-        # #############################################################################
-        # Import coordinates for fixations
-
-        fixations = pd.read_csv('stim_vals.csv')
-        x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1)*monitor_width/2, scan_count-1)
-        y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2, scan_count-1)
-
-        # #############################################################################
-        # Create SVR Model
-
-        predicted_x, predicted_y = create_model(train_vectors, test_vectors, x_targets, y_targets)
-
-        # #############################################################################
-        # Plot SVR predictions against targets
-
-        scatter_plot(x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False, show=True)
-
-        print('Completed participant ' + name)
-
-        # ###############################################################################
-        # Get error measurements
-
-        x_res = []
-        y_res = []
-
-        for num in range(27):
-
-            nums = num * 5
-
-            for values in range(5):
-
-                error_x = (abs(x_targets[num] - predicted_x[nums + values]))**2
-                error_y = (abs(y_targets[num] - predicted_y[nums + values]))**2
-                x_res.append(error_x)
-                y_res.append(error_y)
-
-        x_error = np.sqrt(np.sum(np.array(x_res))/135)
-        y_error = np.sqrt(np.sum(np.array(y_res))/135)
-
-        params.loc[name, 'x_error'] = x_error
-        params.loc[name, 'y_error'] = y_error
-        params.loc[name, 'scan_count'] = scan_count
-        params.to_csv('subj_params.csv')
-
-        if scan_count == 3:
-
-            try:
-
-                fd1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['RMSD (Mean)'])
-                fd2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['RMSD (Mean)'])
-                fd3 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_3']['RMSD (Mean)'])
-                dv1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['Std. DVARS (Mean)'])
-                dv2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['Std. DVARS (Mean)'])
-                dv3 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_3']['Std. DVARS (Mean)'])
-
-                fd_score = np.average([fd1, fd2, fd3])
-                dvars_score = np.average([dv1, dv2, dv3])
-                params.loc[name, 'mean_fd'] = fd_score
-                params.loc[name, 'dvars'] = dvars_score
-
-            except:
-
-                print('Participant not found in QAP')
-
-        elif scan_count == 2:
-
-            try:
-
-                fd1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['RMSD (Mean)'])
-                fd2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['RMSD (Mean)'])
-                dv1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['Std. DVARS (Mean)'])
-                dv2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['Std. DVARS (Mean)'])
-
-                fd_score = np.average([[fd1, fd2]])
-                dvars_score = np.average([dv1, dv2])
-                params.loc[name, 'mean_fd'] = fd_score
-                params.loc[name, 'dvars'] = dvars_score
-
-            except:
-
-                print('Participant not found in QAP')
-
-        params.to_csv('subj_params.csv')
-
-    except:
-
-        print('Error processing participant')
+def icc_peer():
+    
 
 # #############################################################################
 # Visualize error vs motion
 
 # params = pd.read_csv('subj_params.csv', index_col='subject')
-# params = params[params['x_error'] < 50000][params['y_error'] < 50000][params['mean_fd'] < .30][params['dvars'] < 1.3]
+# params = params[params['x_error'] < 50000][params['y_error'] < 50000][params['mean_fd'] < 3.8][params['dvars'] < 1.5]
 #
+# # Need to fix script to not rely on indexing and instead include a subset based on mean and stdv parameters
 # num_part = len(params)
-# print(num_part)
 #
 # x_error_list = params.loc[:, 'x_error'][:num_part].tolist()
 # y_error_list = params.loc[:, 'y_error'][:num_part].tolist()
@@ -405,55 +486,9 @@ for name in ['sub-5378545']:
 # #############################################################################
 # Visualization for one participant in each direction
 
-# x_targets = np.repeat(np.array(fixations['pos_x']), 5)*monitor_width/2
-# y_targets = np.repeat(np.array(fixations['pos_y']), 5)*monitor_height/2
-#
-# time_series = range(0, len(x_targets))
-#
-# plt.figure()
-# plt.subplot(2, 1, 1)
-# plt.ylabel('Horizontal position')
-# plt.plot(time_series, x_targets, '.-', color='k')
-# plt.plot(time_series, predicted_x, '.-', color='b')
-# plt.subplot(2, 1, 2)
-# plt.ylabel('Vertical position')
-# plt.xlabel('TR')
-# plt.plot(time_series, y_targets, '.-', color='k')
-# plt.plot(time_series, predicted_y, '.-', color='b')
-# # plt.savefig(os.path.join(output_path, 'y_dir.png'), bbox_inches='tight', dpi=600)
-# # plt.show()
-#
+
+
 # # #############################################################################
 # # Histogram for RMSE distribution after outlier removal
 
-# params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
-#
-# x_no_gsr = remove_out('x_error')
-# y_no_gsr = remove_out('y_error')
-# x_gsr = remove_out('x_error_gsr')
-# y_gsr = remove_out('y_error_gsr')
-#
-# xbins = np.histogram(np.hstack((x_no_gsr, x_gsr)), bins=25)[1]
-# ybins = np.histogram(np.hstack((y_no_gsr, y_gsr)), bins=25)[1]
-#
-# plt.figure()
-# plt.hist(x_no_gsr, xbins, color='r', alpha=.5, label='No GSR')
-# plt.hist(x_gsr, xbins, color='b', alpha=.5, label='GSR')
-# plt.title('RMSE distribution in the x-direction')
-# plt.ylabel('Number of participants')
-# plt.xlabel('RMSE (x-direction)')
-# plt.legend()
-# # plt.savefig(os.path.join(output_path, 'x_dir_histogram'), bbox_inches='tight', dpi=600)
-# # plt.show()
-#
-# plt.figure()
-# plt.hist(y_no_gsr, ybins, color='r', alpha=.5, label='No GSR')
-# plt.hist(y_gsr, ybins, color='b', alpha=.5, label='GSR')
-# plt.legend()
-# plt.title('RMSE distribution in the y-direction')
-# plt.ylabel('Number of participants')
-# plt.xlabel('RMSE (y-direction)')
-# # plt.savefig(os.path.join(output_path, 'y_dir_histogram'), bbox_inches='tight', dpi=600)
-# # plt.show()
-
-
+# rmse_hist()
