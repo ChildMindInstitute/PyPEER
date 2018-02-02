@@ -76,7 +76,7 @@ def create_model(train_vectors, test_vectors, x_targets, y_targets):
     return predicted_x, predicted_y
 
 
-def scatter_plot(x_targets, y_targets, predicted_x, predicted_y, plot=False, save=False):
+def scatter_plot(name, x_targets, y_targets, predicted_x, predicted_y, plot=False, save=False):
 
     if plot:
 
@@ -342,7 +342,7 @@ def standard_peer(subject_list, gsr=True, update=False):
             # #############################################################################
             # Plot SVR predictions against targets
 
-            scatter_plot(x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False)
+            scatter_plot(name, x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False)
             axis_plot(fixations, predicted_x, predicted_y)
 
             print('Completed participant ' + name)
@@ -420,11 +420,172 @@ def standard_peer(subject_list, gsr=True, update=False):
 
             print('Error processing participant')
 
-standard_peer(['sub-5540614'], gsr=True, update=False)
+# standard_peer(['sub-5540614'], gsr=True, update=False)
 
 
-def icc_peer():
-    
+def icc_peer(subject_list, gsr=False, update=False, scan=1):
+
+    for name in subject_list:
+
+        xb = int(params.loc[name, 'x_start']); xe = int(params.loc[name, 'x_end'])
+        yb = int(params.loc[name, 'y_start']); ye = int(params.loc[name, 'y_end'])
+        zb = int(params.loc[name, 'z_start']); ze = int(params.loc[name, 'z_end'])
+
+        try:
+
+            print('Beginning analysis on participant ' + name)
+
+            training1 = nib.load(data_path + name + '/PEER' + str(scan) + '_resampled.nii.gz')
+            training1_data = training1.get_data()
+            testing = nib.load(data_path + name + '/PEER2_resampled.nii.gz')
+            testing_data = testing.get_data()
+            scan_count = 2
+
+            print('starting gsr')
+
+            if gsr:
+
+                training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
+                testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
+
+            listed1 = []
+            listed_testing = []
+
+            print('beginning vectors')
+
+            for tr in range(int(training1_data.shape[3])):
+
+                tr_data1 = training1_data[xb:xe, yb:ye, zb:ze, tr]
+                vectorized1 = np.array(tr_data1.ravel())
+                listed1.append(vectorized1)
+                te_data = testing_data[xb:xe, yb:ye, zb:ze, tr]
+                vectorized_testing = np.array(te_data.ravel())
+                listed_testing.append(vectorized_testing)
+
+            train_vectors1 = np.asarray(listed1)
+            train_vectors2 = []
+            test_vectors = np.asarray(listed_testing)
+
+            print('average vectors')
+
+            train_vectors = data_processing(scan_count, train_vectors1, train_vectors2)
+
+            # #############################################################################
+            # Import coordinates for fixations
+
+            print('importing fixations')
+
+            fixations = pd.read_csv('stim_vals.csv')
+            x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1)*monitor_width/2, scan_count-1)
+            y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2, scan_count-1)
+
+            # #############################################################################
+            # Create SVR Model
+
+            predicted_x, predicted_y = create_model(train_vectors, test_vectors, x_targets, y_targets)
+
+            # #############################################################################
+            # Plot SVR predictions against targets
+
+            # scatter_plot(name, x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False)
+            # axis_plot(fixations, predicted_x, predicted_y)
+
+            print('Completed participant ' + name)
+
+            # ###############################################################################
+            # Get error measurements
+
+            x_res = []
+            y_res = []
+
+            for num in range(27):
+
+                nums = num * 5
+
+                for values in range(5):
+
+                    error_x = (abs(x_targets[num] - predicted_x[nums + values]))**2
+                    error_y = (abs(y_targets[num] - predicted_y[nums + values]))**2
+                    x_res.append(error_x)
+                    y_res.append(error_y)
+
+            x_error = np.sqrt(np.sum(np.array(x_res))/135)
+            y_error = np.sqrt(np.sum(np.array(y_res))/135)
+
+            print([x_error, y_error])
+
+            params.loc[name, 'x_error_' + str(scan)] = x_error
+            params.loc[name, 'y_error_' + str(scan)] = y_error
+
+            try:
+
+                fd1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['RMSD (Mean)'])
+                fd2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['RMSD (Mean)'])
+                dv1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['Std. DVARS (Mean)'])
+                dv2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['Std. DVARS (Mean)'])
+
+                fd_score = np.average([[fd1, fd2]])
+                dvars_score = np.average([dv1, dv2])
+                params.loc[name, 'mean_fd'] = fd_score
+                params.loc[name, 'dvars'] = dvars_score
+
+            except:
+
+                print('Participant not found in QAP')
+
+            if update:
+
+                params.to_csv('subj_params.csv')
+
+        except:
+
+            print('Error processing participant')
+
+icc_peer(full_set, gsr=True, update=True, scan=1)
+
+params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
+params = params[params['scan_count'] == str(3)]
+p1x = params['x_error_1']
+p1y = params['y_error_1']
+p3x = params['x_error_3']
+p3y = params['y_error_3']
+p1x = np.array([float(x) for x in p1x])
+p1y = np.array([float(x) for x in p1y])
+p3x = np.array([float(x) for x in p3x])
+p3y = np.array([float(x) for x in p3y])
+
+def compute_icc(x, y):
+    """
+    This function computes the inter-class correlation (ICC) of the
+    two classes represented by the x and y numpy vectors.
+    """
+    n = len(x)
+
+    if all(x == y):
+        return 1
+
+    Sx = sum(x); Sy = sum(y);
+    Sxx = sum(x*x); Sxy = sum( (x+y)**2 )/2; Syy = sum(y*y)
+
+    fact = ((Sx + Sy)**2)/(n*2)
+    SS_tot = Sxx + Syy - fact
+    SS_among = Sxy - fact
+    SS_error = SS_tot - SS_among
+
+    MS_error = SS_error/n
+    MS_among = SS_among/(n-1)
+
+    ICC = (MS_among - MS_error) / (MS_among + MS_error)
+
+    return ICC
+
+compute_icc(p1x, p3x)
+
+from scipy.stats import pearsonr
+
+pearsonr(p1y, p3y)
+
+
 
 # #############################################################################
 # Visualize error vs motion
