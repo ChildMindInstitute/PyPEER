@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 from sklearn.svm import SVR
+from scipy.stats import ttest_rel
 import matplotlib.pyplot as plt
 from sklearn.model_selection import GridSearchCV
 
@@ -140,18 +141,22 @@ def data_processing(scan_count, train_vectors1, train_vectors2):
 def rmse_hist(save=False):
 
     params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
+    params = params[params['scan_count'] == 3]
 
-    x_no_gsr = remove_out('x_error')
-    y_no_gsr = remove_out('y_error')
-    x_gsr = remove_out('x_error_gsr')
-    y_gsr = remove_out('y_error_gsr')
+    x_1 = remove_out('x_error_1')
+    y_1 = remove_out('y_error_1')
+    x_b = remove_out('x_error_gsr')
+    y_b = remove_out('y_error_gsr')
+    x_3 = remove_out('x_error_3')
+    y_3 = remove_out('y_error_3')
 
-    xbins = np.histogram(np.hstack((x_no_gsr, x_gsr)), bins=20)[1]
-    ybins = np.histogram(np.hstack((y_no_gsr, y_gsr)), bins=20)[1]
+    xbins = np.histogram(np.hstack((x_1, x_b, x_3)), bins=30)[1]
+    ybins = np.histogram(np.hstack((y_1, y_b, y_3)), bins=30)[1]
 
     plt.figure()
-    plt.hist(x_no_gsr, xbins, color='r', alpha=.6, label='No GSR')
-    plt.hist(x_gsr, xbins, color='b', alpha=.4, label='GSR')
+    plt.hist(x_1, xbins, color='r', alpha=.8, label='PEER 1')
+    plt.hist(x_b, xbins, color='g', alpha=.8, label='PEER both')
+    plt.hist(x_3, xbins, color='b', alpha=.8, label='PEER 3')
     plt.title('RMSE distribution in the x-direction')
     plt.ylabel('Number of participants')
     plt.xlabel('RMSE (x-direction)')
@@ -162,8 +167,9 @@ def rmse_hist(save=False):
         plt.savefig(os.path.join(output_path, 'x_dir_histogram'), bbox_inches='tight', dpi=600)
 
     plt.figure()
-    plt.hist(y_no_gsr, ybins, color='r', alpha=.6, label='No GSR')
-    plt.hist(y_gsr, ybins, color='b', alpha=.4, label='GSR')
+    plt.hist(y_1, ybins, color='r', alpha=.8, label='PEER 1')
+    plt.hist(y_b, ybins, color='g', alpha=.8, label='PEER both')
+    plt.hist(y_3, ybins, color='b', alpha=.8, label='PEER 3')
     plt.legend()
     plt.title('RMSE distribution in the y-direction')
     plt.ylabel('Number of participants')
@@ -174,7 +180,6 @@ def rmse_hist(save=False):
         plt.savefig(os.path.join(output_path, 'y_dir_histogram'), bbox_inches='tight', dpi=600)
 
     plt.show()
-
 
 def axis_plot(fixations, predicted_x, predicted_y):
 
@@ -488,7 +493,7 @@ def icc_peer(subject_list, gsr=False, update=False, scan=1):
             # Plot SVR predictions against targets
 
             # scatter_plot(name, x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False)
-            # axis_plot(fixations, predicted_x, predicted_y)
+            axis_plot(fixations, predicted_x, predicted_y)
 
             print('Completed participant ' + name)
 
@@ -541,7 +546,8 @@ def icc_peer(subject_list, gsr=False, update=False, scan=1):
 
             print('Error processing participant')
 
-icc_peer(full_set, gsr=True, update=True, scan=1)
+# icc_peer(full_set, gsr=True, update=True, scan=1)
+icc_peer(['sub-5818210'], gsr=True, update=False, scan=1)
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 params = params[params['scan_count'] == str(3)]
@@ -549,10 +555,14 @@ p1x = params['x_error_1']
 p1y = params['y_error_1']
 p3x = params['x_error_3']
 p3y = params['y_error_3']
+ptx = params['x_error_gsr']
+pty = params['y_error_gsr']
 p1x = np.array([float(x) for x in p1x])
 p1y = np.array([float(x) for x in p1y])
 p3x = np.array([float(x) for x in p3x])
 p3y = np.array([float(x) for x in p3y])
+ptx = np.array([float(x) for x in ptx])
+pty = np.array([float(x) for x in pty])
 
 def compute_icc(x, y):
     """
@@ -579,13 +589,18 @@ def compute_icc(x, y):
 
     return ICC
 
-compute_icc(p1x, p3x)
+compute_icc(p3x, ptx)
 
 from scipy.stats import pearsonr
 
 pearsonr(p1y, p3y)
 
+p1_ptx = ttest_rel(p1x, ptx)[1]
+p1_p3x = ttest_rel(p1x, p3x)[1]
+p1_pty = ttest_rel(p1y, pty)[1]
+p1_p3y = ttest_rel(p1y, p3y)[1]
 
+print([p1_ptx, p1_p3x, p1_pty, p1_p3y])
 
 # #############################################################################
 # Visualize error vs motion
