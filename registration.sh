@@ -6,7 +6,9 @@ outpath='/data2/Projects/Jake/Registration_PEER'
 cd $outpath
 
 rm copy_raw.txt
-rm copy_ants.txt
+rm copy_out.txt
+rm copy_working.txt
+rm anat_to_temp.txt
 
 cd $data
 
@@ -61,11 +63,11 @@ for sub in 'sub-5002891_ses-1';do
 
 	outsub=$(echo $sub | cut -f1 -d"_")
 
-	echo "cp $deskull $outpath/no_skull.nii.gz" >> $outpath/$outsub/copy_out.txt
-	echo "cp $skull $outpath/skull.nii.gz" >> $outpath/$outsub/copy_out.txt
-	echo "cp $fmean1 $outpath/fmean1.nii.gz" >> $outpath/$outsub/copy_out.txt
-	echo "cp $fmean2 $outpath/fmean2.nii.gz" >> $outpath/$outsub/copy_out.txt
-	echo "cp $fmean3 $outpath/fmean3.nii.gz" >> $outpath/$outsub/copy_out.txt
+	echo "cp $deskull $outpath/$outsub/no_skull.nii.gz" >> $outpath/copy_out.txt
+	echo "cp $skull $outpath/$outsub/skull.nii.gz" >> $outpath/copy_out.txt
+	echo "cp $fmean1 $outpath/$outsub/fmean1.nii.gz" >> $outpath/copy_out.txt
+	echo "cp $fmean2 $outpath/$outsub/fmean2.nii.gz" >> $outpath/copy_out.txt
+	echo "cp $fmean3 $outpath/$outsub/fmean3.nii.gz" >> $outpath/copy_out.txt
 
 done
 
@@ -80,7 +82,7 @@ for sub in 'resting_preproc_sub-5002891_ses-1';do
 
 	segments=$ants_work/$sub/seg_preproc_0/WM/WM_mask/segment_seg_2_maths.nii.gz
 
-	echo "cp $segments $outpath/segments.nii.gz" >> $outpath/$outsub/copy_working.txt
+	echo "cp $segments $outpath/$outsub/segments.nii.gz" >> $outpath/copy_working.txt
 
 done
 
@@ -93,13 +95,16 @@ cd $outpath
 
 template='/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm.nii.gz'
 
-for subject in $(ls);do
+for subject in $(ls -d */);do
 
-	echo "" >> anat_to_temp.txt
+	echo $subject
+
+	echo "antsRegistration --collapse-output-transforms 0 --dimensionality 3 -v 1 --initial-moving-transform [$template,$outpath/$subject/'no_skull.nii.gz',0] --interpolation Linear --output [$outpath/$outsub/transform, $outpath/$subject/transform_Warped.nii.gz] --transform Rigid[0.1] --metric MI[$template, $outpath/$subject/'no_skull.nii.gz', 1, 32, Regular, 0.25] --convergence [1000x500x250x100, 1e-08, 10] --smoothing-sigmas 3.0x2.0x1.0x0.0 --shrink-factors 8x4x2x1 --use-histogram-matching 1 --transform Affine[0.1] --metric MI[$template, $outpath/$subject/'no_skull.nii.gz', 1, 32, Regular, 0.25] --convergence [1000x500x250x100, 1e-08, 10] --smoothing-sigmas 3.0x2.0x1.0x0.0 --shrink-factors 8x4x2x1 --use-histogram-matching 1 --transform SyN[.1, 3.0, 0.0] --metric CC[$template, $outpath/$subject/'skull.nii.gz', 1, 4] --convergence [100x100x70x20, 1e-09, 15] --smoothing-sigmas 3.0x2.0x1.0x0.0 --shrink-factors 6x4x2x1 --use-histogram-matching 1 --winsorize-image-intensities [.01, .99]" >> $outpath/anat_to_temp.txt
 
 done
 
-antsRegistration --collapse-output-transforms 0 --dimensionality 3 --initial-moving-transform [$template,$outpath/$subject/'no_skull.nii.gz',0] --interpolation Linear --output [transform, transform_Warped.nii.gz] --transform Rigid[0.1] --metric MI[$template, $outpath/$subject/'no_skull.nii.gz', 1, 32, Regular, 0.25] --convergence [1000x500x250x100, 1e-08, 10] --smoothing-sigmas 3.0x2.0x1.0x0.0 --shrink-factors 8x4x2x1 --use-histogram-matching 1 --transform Affine[0.1] --metric MI[$template, $outpath/$subject/'no_skull.nii.gz', 1, 32, Regular, 0.25] --convergence [1000x500x250x100, 1e-08, 10] --smoothing-sigmas 3.0x2.0x1.0x0.0 --shrink-factors 8x4x2x1 --use-histogram-matching 1 --transform SyN[.1, 3.0, 0.0] --metric CC[$template, $outpath/$subject/'skull.nii.gz', 1, 4] --convergence [100x100x70x20, 1e-09, 15] --smoothing-sigmas 3.0x2.0x1.0x0.0 --shrink-factors 6x4x2x1 --use-histogram-matching 1 --winsorize-image-intensities [.01, .99]
+cat $outpath/anat_to_temp.txt | parallel -j 3
+
 
 
 
