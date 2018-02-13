@@ -103,7 +103,79 @@ for subject in $(ls -d */);do
 
 done
 
-cat $outpath/anat_to_temp.txt | parallel -j 3
+cat $outpath/anat_to_temp.txt | parallel -j 20
+
+##########################################################################
+# Linear registration from functional to anatomical
+
+for subject in $(ls -d */);do
+
+	echo $subject
+
+	for file in $(ls $outpath/$subject)
+
+		if [[ $file = *"peer_1"* ]];then
+
+			echo -n "flirt -in $file -ref $outpath/$subject/'no_skull.nii.gz' -out func_to_anat1.nii.gz -omat func_to_anat1.mat -cost corratio -dof 6 -interp trilinear;" >> $outpath/flirt.txt
+			echo "flirt -in $file -ref $outpath/$subject/'no_skull.nii.gz' -out func_to_anat_bbreg1.nii.gz -omat func_to_anat_bbreg1.mat -cost bbr -wmseg $outpath/$subject/'segments.nii.gz' -dof 6 -init func_to_anat.mat -schedule '/usr/share/fsl/5.0/etc/flirtsch/bbr.sch'" >> $outpath/flirt.txt
+
+		elif [[ $file = *"peer_2"* ]];then
+
+			echo -n "flirt -in $file -ref $outpath/$subject/'no_skull.nii.gz' -out func_to_anat2.nii.gz -omat func_to_anat2.mat -cost corratio -dof 6 -interp trilinear;" >> $outpath/flirt.txt
+			echo "flirt -in $file -ref $outpath/$subject/'no_skull.nii.gz' -out func_to_anat_bbreg2.nii.gz -omat func_to_anat_bbreg2.mat -cost bbr -wmseg $outpath/$subject/'segments.nii.gz' -dof 6 -init func_to_anat.mat -schedule '/usr/share/fsl/5.0/etc/flirtsch/bbr.sch'" >> $outpath/flirt.txt
+
+		elif [[ $file = *"peer_3"* ]];then
+
+			echo -n "flirt -in $file -ref $outpath/$subject/'no_skull.nii.gz' -out func_to_anat3.nii.gz -omat func_to_anat3.mat -cost corratio -dof 6 -interp trilinear;" >> $outpath/flirt.txt
+			echo "flirt -in $file -ref $outpath/$subject/'no_skull.nii.gz' -out func_to_anat_bbreg3.nii.gz -omat func_to_anat_bbreg3.mat -cost bbr -wmseg $outpath/$subject/'segments.nii.gz' -dof 6 -init func_to_anat.mat -schedule '/usr/share/fsl/5.0/etc/flirtsch/bbr.sch'" >> $outpath/flirt.txt
+
+		fi
+
+	done
+
+done
+
+cat flirt.txt | parallel -j 20
+
+##########################################################################
+# Convert from FSL format to ANTs/ITK format
+
+
+
+
+
+
+c3d_affine_tool
+-ref <anatomical_deskull>
+-src <func_mean>
+func_to_anat_bbreg<#>.mat
+-fsl2ras
+-oitk itk_func_to_anat_bbreg<#>.mat
+
+##########################################################################
+# Change second line of each itk file from MatrixOffsetTransformBase_double_3_3 to AffineTransform_double_3_3 and SAVE AS TEXT FILE
+
+
+
+
+
+
+##########################################################################
+# Apply all transformations to get from functional to template space
+
+antsApplyTransforms
+--default-value 0 
+--dimensionality 3
+-v 1
+--input-image-type 3
+--input <functional>
+--reference-image <template>
+--output peer<#>_warped.nii.gz
+--transform <transform3Warp.nii.gz>
+--transform <transform2Affine.mat>
+--transform <transform1Rigid.mat>
+--transform <transform0DerivedInitialMovingTranslation.mat>
+--transform <itk_func_to_anat_bbreg.txt>
 
 
 
