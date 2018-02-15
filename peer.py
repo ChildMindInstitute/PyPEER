@@ -62,8 +62,9 @@ def create_model(train_vectors, test_vectors, x_targets, y_targets):
     print('making model')
 
     # GridSearch Model
+    # GS_model = SVR(kernel='linear', verbose=2)
     GS_model = SVR(kernel='linear')
-    parameters = {'kernel': ('linear', 'poly'), 'C': [100, 1000, 2500, 5000, 10000],
+    parameters = {'kernel': ('linear', 'poly'), 'C': [100, 1000],
                   'epsilon': [.01, .005, .001]}
     clfx = GridSearchCV(GS_model, parameters)
     clfx.fit(train_vectors, x_targets)
@@ -141,7 +142,7 @@ def data_processing(scan_count, train_vectors1, train_vectors2):
 def rmse_hist(save=False):
 
     params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
-    params = params[params['scan_count'] == 3]
+    params = params[params['scan_count'] == str(3)]
 
     x_1 = remove_out('x_error_1')
     y_1 = remove_out('y_error_1')
@@ -149,14 +150,48 @@ def rmse_hist(save=False):
     y_b = remove_out('y_error_gsr')
     x_3 = remove_out('x_error_3')
     y_3 = remove_out('y_error_3')
+    x_n = remove_out('x_error')
+    y_n = remove_out('y_error')
 
     xbins = np.histogram(np.hstack((x_1, x_b, x_3)), bins=30)[1]
     ybins = np.histogram(np.hstack((y_1, y_b, y_3)), bins=30)[1]
 
+    # Training Set
+    plt.figure(figsize=(8, 8))
+    plt.hist([y_1, y_3, y_b], xbins, stacked=False, color=['red', 'blue', 'green'], label=['PEER 1', 'PEER 3', 'PEER 1&3'])
+    plt.xlabel('RMSE (y-direction)')
+    plt.ylabel('Number of participants')
+    plt.title('RMSE Distribution by Training Set (y-direction)')
+    plt.xlim([0, 3000])
+    plt.legend()
+    plt.savefig(os.path.join(output_path, 'training_set_comparison_y'), bbox_inches='tight', dpi=600)
+    plt.show()
+
+    # GSR vs Non-GSR
+    plt.figure(figsize=(8, 8))
+    plt.hist([x_n, x_b], 35, stacked=False, color=['red', 'blue'], label=['No-GSR', 'GSR'])
+    plt.title('RMSE Distribution for GSR and non-GSR data (x-direction)')
+    plt.ylabel('Number of participants')
+    plt.xlabel('RMSE (x-direction)')
+    plt.legend()
+    plt.savefig(os.path.join(output_path, 'gsr_comparison_x'), bbox_inches='tight', dpi=600)
+    plt.show()
+
+    # x vs y
+    plt.figure(figsize=(8, 8))
+    plt.hist([x_b, y_b], 35, stacked=False, color=['red', 'blue'], label=['x', 'y'])
+    plt.title('RMSE Distribution by Axis')
+    plt.xlabel('RMSE')
+    plt.ylabel('Number of participants')
+    plt.xlim([0, 3000])
+    plt.legend()
+    # plt.savefig(os.path.join(output_path, 'x_y'), bbox_inches='tight', dpi=600)
+    plt.show()
+
     plt.figure()
-    plt.hist(x_1, xbins, color='r', alpha=.8, label='PEER 1')
-    plt.hist(x_b, xbins, color='g', alpha=.8, label='PEER both')
-    plt.hist(x_3, xbins, color='b', alpha=.8, label='PEER 3')
+    plt.hist(x_1, xbins, color='r', alpha=.5, label='PEER 1')
+    plt.hist(x_b, xbins, color='g', alpha=.5, label='PEER 1&3')
+    plt.hist(x_3, xbins, color='b', alpha=.5, label='PEER 3')
     plt.title('RMSE distribution in the x-direction')
     plt.ylabel('Number of participants')
     plt.xlabel('RMSE (x-direction)')
@@ -167,9 +202,9 @@ def rmse_hist(save=False):
         plt.savefig(os.path.join(output_path, 'x_dir_histogram'), bbox_inches='tight', dpi=600)
 
     plt.figure()
-    plt.hist(y_1, ybins, color='r', alpha=.8, label='PEER 1')
-    plt.hist(y_b, ybins, color='g', alpha=.8, label='PEER both')
-    plt.hist(y_3, ybins, color='b', alpha=.8, label='PEER 3')
+    plt.hist(y_1, ybins, color='r', alpha=.5, label='PEER 1')
+    plt.hist(y_b, ybins, color='g', alpha=.5, label='PEER 1&3')
+    plt.hist(y_3, ybins, color='b', alpha=.5, label='PEER 3')
     plt.legend()
     plt.title('RMSE distribution in the y-direction')
     plt.ylabel('Number of participants')
@@ -181,7 +216,8 @@ def rmse_hist(save=False):
 
     plt.show()
 
-def axis_plot(fixations, predicted_x, predicted_y):
+
+def axis_plot(fixations, predicted_x, predicted_y, subj):
 
     x_targets = np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2
     y_targets = np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2
@@ -196,12 +232,14 @@ def axis_plot(fixations, predicted_x, predicted_y):
     plt.subplot(2, 1, 2)
     plt.ylabel('Vertical position')
     plt.xlabel('TR')
+    plt.title('Participant ' + str(subj))
     plt.plot(time_series, y_targets, '.-', color='k')
     plt.plot(time_series, predicted_y, '.-', color='b')
-    # plt.savefig(os.path.join(output_path, 'y_dir.png'), bbox_inches='tight', dpi=600)
+    # plt.savefig(os.path.join(output_path, 'peer_3.png'), bbox_inches='tight', dpi=600)
     plt.show()
 
-data_path = '/data2/Projects/Jake/CBIC/'
+# data_path = '/data2/Projects/Jake/Registration_Test/'
+data_path = '/data2/Projects/Jake/RU/'
 qap_path_RU = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/QAP/qap_functional_temporal.csv'
 qap_path_CBIC = '/data2/HBNcore/CMI_HBN_Data/MRI/CBIC/QAP/qap_functional_temporal.csv'
 output_path = '/home/json/Desktop/peer/Figures'
@@ -323,6 +361,9 @@ def standard_peer(subject_list, gsr=True, update=False):
             if scan_count == 3:
                 train_vectors2 = np.asarray(listed2)
 
+            elif scan_count == 2:
+                train_vectors2 = []
+
             # #############################################################################
             # Averaging training signal
 
@@ -347,7 +388,7 @@ def standard_peer(subject_list, gsr=True, update=False):
             # #############################################################################
             # Plot SVR predictions against targets
 
-            scatter_plot(name, x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False)
+            # scatter_plot(name, x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False)
             axis_plot(fixations, predicted_x, predicted_y)
 
             print('Completed participant ' + name)
@@ -425,7 +466,7 @@ def standard_peer(subject_list, gsr=True, update=False):
 
             print('Error processing participant')
 
-# standard_peer(['sub-5540614'], gsr=True, update=False)
+standard_peer(['sub-5437909'], gsr=True, update=False)
 
 
 def icc_peer(subject_list, gsr=False, update=False, scan=1):
@@ -547,7 +588,7 @@ def icc_peer(subject_list, gsr=False, update=False, scan=1):
             print('Error processing participant')
 
 # icc_peer(full_set, gsr=True, update=True, scan=1)
-icc_peer(['sub-5818210'], gsr=True, update=False, scan=1)
+icc_peer(['sub-5437909'], gsr=True, update=False, scan=3)
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
 params = params[params['scan_count'] == str(3)]
@@ -603,11 +644,156 @@ p1_p3y = ttest_rel(p1y, p3y)[1]
 print([p1_ptx, p1_p3x, p1_pty, p1_p3y])
 
 # #############################################################################
+# Test registered data
+
+eye_mask = nib.load('/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_eye_mask.nii.gz')
+eye_mask = eye_mask.get_data()
+
+params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
+sub_ref = params.index.values.tolist()
+
+reg_list = []
+
+with open('subj_params.csv', 'a') as updated_params:
+    writer = csv.writer(updated_params)
+
+    for subject in os.listdir('/data2/Projects/Jake/Registration_complete/'):
+        if any(subject in x for x in sub_ref) and 'txt' not in subject:
+            if str(params.loc[subject, 'x_error_reg']) == 'nan':
+                reg_list.append(subject)
+
+params = pd.read_csv('subj_params.csv', index_col='subject')
+output = params[params['x_error_gsr'] < 350][params['y_error_gsr'] < 350][params['scan_count'] == 3]
+
+def regi_peer(reg_list):
+
+
+    for sub in reg_list:
+
+        print('starting participant ' + str(sub))
+        scan1 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer1_warped.nii.gz')
+        scan1 = scan1.get_data()
+        scan2 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer2_warped.nii.gz')
+        scan2 = scan2.get_data()
+        scan3 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer3_warped.nii.gz')
+        scan3 = scan3.get_data()
+
+        for item in [scan1, scan2, scan3]:
+
+            for vol in range(item.shape[3]):
+
+                output = np.multiply(eye_mask, item[:, :, :, vol])
+
+                item[:, :, :, vol] = output
+
+        for item in [scan1, scan2, scan3]:
+
+            item = gs_regress(item, 0, 90, 0, 108, 0, 90)
+
+        listed1 = []
+        listed2 = []
+        listed_testing = []
+
+        print('beginning vectors')
+
+        for tr in range(int(scan1.shape[3])):
+
+            tr_data1 = scan1[15:75,73:105,3:34,tr]
+            vectorized1 = np.array(tr_data1.ravel())
+            listed1.append(vectorized1)
+
+            tr_data2 = scan3[15:75,73:105,3:34,tr]
+            vectorized2 = np.array(tr_data2.ravel())
+            listed2.append(vectorized2)
+
+            te_data = scan2[15:75,73:105,3:34,tr]
+            vectorized_testing = np.array(te_data.ravel())
+            listed_testing.append(vectorized_testing)
+
+        train_vectors1 = np.asarray(listed1)
+        test_vectors = np.asarray(listed_testing)
+        train_vectors2 = np.asarray(listed2)
+
+        # #############################################################################
+        # Averaging training signal
+
+        print('average vectors')
+
+        train_vectors = data_processing(3, train_vectors1, train_vectors2)
+
+        # #############################################################################
+        # Import coordinates for fixations
+
+        print('importing fixations')
+
+        fixations = pd.read_csv('stim_vals.csv')
+        x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 3 - 1)
+        y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 3 - 1)
+
+        # #############################################################################
+        # Create SVR Model
+
+        predicted_x, predicted_y = create_model(train_vectors, test_vectors, x_targets, y_targets)
+
+        axis_plot(fixations, predicted_x, predicted_y, sub)
+
+        x_res = []
+        y_res = []
+
+        for num in range(27):
+
+            nums = num * 5
+
+            for values in range(5):
+                error_x = (abs(x_targets[num] - predicted_x[nums + values])) ** 2
+                error_y = (abs(y_targets[num] - predicted_y[nums + values])) ** 2
+                x_res.append(error_x)
+                y_res.append(error_y)
+
+        x_error = np.sqrt(np.sum(np.array(x_res)) / 135)
+        y_error = np.sqrt(np.sum(np.array(y_res)) / 135)
+        print([x_error, y_error])
+
+        params.loc[sub, 'x_error_reg'] = x_error
+        params.loc[sub, 'y_error_reg'] = y_error
+        params.to_csv('subj_params.csv')
+        print('participant ' + str(sub) + ' complete')
+
+full_list = os.listdir('/data2/Projects/Jake/Registration_complete/')
+
+x_non_reg = params.loc[full_list, 'x_error_gsr'].tolist()
+x_with_reg = params.loc[full_list, 'x_error_reg'].tolist()
+y_non_reg = params.loc[full_list, 'y_error_gsr'].tolist()
+y_with_reg = params.loc[full_list, 'y_error_reg'].tolist()
+
+x_non_reg = np.array([float(x) for x in x_non_reg])
+x_with_reg = np.array([float(x) for x in x_with_reg])
+y_non_reg = np.array([float(x) for x in y_non_reg])
+y_with_reg = np.array([float(x) for x in y_with_reg])
+
+m1, b1 = np.polyfit(x_non_reg, x_with_reg, 1)
+m2, b2 = np.polyfit(y_non_reg, y_with_reg, 1)
+
+plt.figure(figsize=(8, 8))
+
+plt.scatter(x_non_reg, x_with_reg, color='b')
+plt.scatter(y_non_reg, y_with_reg, color='r')
+plt.plot(x_non_reg, m1*x_non_reg + b1, color='b', label='x, slope=.56')
+plt.plot(y_non_reg, m2*y_non_reg + b2, color='r', label='y, slope=.52')
+plt.xlim([0, 1400])
+plt.ylim([0, 1400])
+plt.xlabel('RMSE without registration')
+plt.ylabel('RMSE with registration')
+plt.legend()
+
+plt.show()
+
+# #############################################################################
 # Visualize error vs motion
 
-# params = pd.read_csv('subj_params.csv', index_col='subject')
-# params = params[params['x_error'] < 50000][params['y_error'] < 50000][params['mean_fd'] < 3.8][params['dvars'] < 1.5]
-#
+params = pd.read_csv('subj_params.csv', index_col='subject')
+params = params[params['x_error'] < 50000][params['y_error'] < 50000][params['mean_fd'] < 3.8][params['dvars'] < 1.5]
+
 # # Need to fix script to not rely on indexing and instead include a subset based on mean and stdv parameters
 # num_part = len(params)
 #
