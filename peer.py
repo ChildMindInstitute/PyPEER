@@ -63,15 +63,24 @@ def create_model(train_vectors, test_vectors, x_targets, y_targets):
 
     # GridSearch Model
     # GS_model = SVR(kernel='linear', verbose=2)
-    GS_model = SVR(kernel='linear')
+    # GS_model = SVR(kernel='linear')
+    x_model = SVR(kernel='linear', C=100, epsilon=.01)
+    print('Completed x model')
+    y_model = SVR(kernel='linear', C=100, epsilon=.01)
+    x_model.fit(train_vectors, x_targets)
+    y_model.fit(train_vectors, y_targets)
+    predicted_x = x_model.predict(test_vectors)
+    print('Completed x model predictions')
+    predicted_y = y_model.predict(test_vectors)
+    print('Completed y model predictions')
     parameters = {'kernel': ('linear', 'poly'), 'C': [100, 1000],
                   'epsilon': [.01, .005, .001]}
-    clfx = GridSearchCV(GS_model, parameters)
-    clfx.fit(train_vectors, x_targets)
-    clfy = GridSearchCV(GS_model, parameters)
-    clfy.fit(train_vectors, y_targets)
-    predicted_x = clfx.predict(test_vectors)
-    predicted_y = clfy.predict(test_vectors)
+    # clfx = GridSearchCV(GS_model, parameters)
+    # clfx.fit(train_vectors, x_targets)
+    # clfy = GridSearchCV(GS_model, parameters)
+    # clfy.fit(train_vectors, y_targets)
+    # predicted_x = clfx.predict(test_vectors)
+    # predicted_y = clfy.predict(test_vectors)
 
     print('model created')
 
@@ -122,7 +131,7 @@ def data_processing(scan_count, train_vectors1, train_vectors2):
     averaged_train1 = []
     averaged_train2 = []
 
-    for num in [i*5 for i in range(27)]:
+    for num in [i*5 for i in range(int(len(train_vectors1)/5))]:
 
         averaged_train1.append(np.average(train_vectors1[num:num+5], axis=0))
 
@@ -222,7 +231,7 @@ def axis_plot(fixations, predicted_x, predicted_y, subj):
     x_targets = np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2
     y_targets = np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2
 
-    time_series = range(0, len(x_targets))
+    time_series = range(0, len(predicted_x))
 
     plt.figure()
     plt.subplot(2, 1, 1)
@@ -239,7 +248,7 @@ def axis_plot(fixations, predicted_x, predicted_y, subj):
     plt.show()
 
 # data_path = '/data2/Projects/Jake/Registration_Test/'
-data_path = '/data2/Projects/Jake/RU/'
+data_path = '/data2/Projects/Jake/CBIC/'
 qap_path_RU = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/QAP/qap_functional_temporal.csv'
 qap_path_CBIC = '/data2/HBNcore/CMI_HBN_Data/MRI/CBIC/QAP/qap_functional_temporal.csv'
 output_path = '/home/json/Desktop/peer/Figures'
@@ -389,7 +398,7 @@ def standard_peer(subject_list, gsr=True, update=False):
             # Plot SVR predictions against targets
 
             # scatter_plot(name, x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False)
-            axis_plot(fixations, predicted_x, predicted_y)
+            axis_plot(fixations, predicted_x, predicted_y, subj)
 
             print('Completed participant ' + name)
 
@@ -662,8 +671,8 @@ with open('subj_params.csv', 'a') as updated_params:
             if str(params.loc[subject, 'x_error_reg']) == 'nan':
                 reg_list.append(subject)
 
-params = pd.read_csv('subj_params.csv', index_col='subject')
-output = params[params['x_error_gsr'] < 350][params['y_error_gsr'] < 350][params['scan_count'] == 3]
+# params = pd.read_csv('subj_params.csv', index_col='subject')
+# output = params[params['x_error_gsr'] < 350][params['y_error_gsr'] < 350][params['scan_count'] == 3]
 
 def regi_peer(reg_list):
 
@@ -671,11 +680,11 @@ def regi_peer(reg_list):
     for sub in reg_list:
 
         print('starting participant ' + str(sub))
-        scan1 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer1_warped.nii.gz')
+        scan1 = nib.load('/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/sub-5139710_ses-1/motion_correct_to_standard/_scan_peer_run-1/sub-5139710_task-peer_run-1_bold_calc_tshift_resample_volreg_antswarp.nii.gz')
         scan1 = scan1.get_data()
-        scan2 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer2_warped.nii.gz')
+        scan2 = nib.load('/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/sub-5139710_ses-1/motion_correct_to_standard/_scan_peer_run-2/sub-5139710_task-peer_run-2_bold_calc_tshift_resample_volreg_antswarp.nii.gz')
         scan2 = scan2.get_data()
-        scan3 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer3_warped.nii.gz')
+        scan3 = nib.load('/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/sub-5139710_ses-1/motion_correct_to_standard/_scan_peer_run-3/sub-5139710_task-peer_run-3_bold_calc_tshift_resample_volreg_antswarp.nii.gz')
         scan3 = scan3.get_data()
 
         for item in [scan1, scan2, scan3]:
@@ -761,6 +770,8 @@ def regi_peer(reg_list):
 
 full_list = os.listdir('/data2/Projects/Jake/Registration_complete/')
 
+ants_data = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/sub-5002891_ses-1/motion_correct_to_standard/'
+
 x_non_reg = params.loc[full_list, 'x_error_gsr'].tolist()
 x_with_reg = params.loc[full_list, 'x_error_reg'].tolist()
 y_non_reg = params.loc[full_list, 'y_error_gsr'].tolist()
@@ -789,11 +800,149 @@ plt.legend()
 plt.show()
 
 # #############################################################################
+# Generalizable classifier
+
+eye_mask = nib.load('/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_eye_mask.nii.gz')
+eye_mask = eye_mask.get_data()
+
+params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
+sub_ref = params.index.values.tolist()
+
+reg_list = []
+
+with open('subj_params.csv', 'a') as updated_params:
+    writer = csv.writer(updated_params)
+
+    for subject in os.listdir('/data2/Projects/Jake/Registration_complete/'):
+        if any(subject in x for x in sub_ref) and 'txt' not in subject:
+            if str(params.loc[subject, 'x_error_reg']) != 'nan':
+                reg_list.append(subject)
+
+reg_list = ['sub-5161675', 'sub-5169146', 'sub-5343770', 'sub-5375858', 'sub-5581172', 'sub-5629350',
+            'sub-5637071', 'sub-5797959', 'sub-5930252', 'sub-5974505']
+
+
+
+
+def general_classifier(reg_list):
+
+    train_vectors1 = []
+    train_vectors2 = []
+    test_vectors = []
+
+    for sub in reg_list[:6]:
+
+        print('starting participant ' + str(sub))
+        scan1 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer1_warped.nii.gz')
+        scan1 = scan1.get_data()
+        scan2 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer2_warped.nii.gz')
+        scan2 = scan2.get_data()
+        scan3 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer3_warped.nii.gz')
+        scan3 = scan3.get_data()
+
+        for item in [scan1, scan2, scan3]:
+
+            for vol in range(item.shape[3]):
+
+                output = np.multiply(eye_mask, item[:, :, :, vol])
+
+                item[:, :, :, vol] = output
+
+        for item in [scan1, scan2, scan3]:
+
+            item = gs_regress(item, 0, 90, 0, 108, 0, 90)
+
+        listed1 = []
+        listed2 = []
+        listed_testing = []
+
+        print('beginning vectors')
+
+        for tr in range(int(scan1.shape[3])):
+
+            tr_data1 = scan1[15:75,73:105,3:34,tr]
+            vectorized1 = np.array(tr_data1.ravel())
+            listed1.append(vectorized1)
+
+            tr_data2 = scan3[15:75,73:105,3:34,tr]
+            vectorized2 = np.array(tr_data2.ravel())
+            listed2.append(vectorized2)
+
+            te_data = scan2[15:75,73:105,3:34,tr]
+            vectorized_testing = np.array(te_data.ravel())
+            listed_testing.append(vectorized_testing)
+
+        train_vectors1.append(listed1)
+        test_vectors.append(listed_testing)
+        train_vectors2.append(listed2)
+
+    full_train1 = []
+    full_test = []
+    full_train2 = []
+
+    for part in range(len(reg_list[:6])):
+        for vect in range(135):
+            full_train1.append(train_vectors1[part][vect])
+            full_test.append(test_vectors[part][vect])
+            full_train2.append(train_vectors2[part][vect])
+
+        # train_vectors1 = np.asarray(listed1)
+        # test_vectors = np.asarray(listed_testing)
+        # train_vectors2 = np.asarray(listed2)
+
+        # #############################################################################
+        # Averaging training signal
+
+    print('average vectors')
+
+    train_vectors = data_processing(3, full_train1, full_train2)
+
+        # #############################################################################
+        # Import coordinates for fixations
+
+    print('importing fixations')
+
+    fixations = pd.read_csv('stim_vals.csv')
+    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), len(reg_list[:6])) * monitor_width / 2, 3 - 1)
+    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), len(reg_list[:6])) * monitor_height / 2, 3 - 1)
+
+        # #############################################################################
+        # Create SVR Model
+
+    predicted_x, predicted_y = create_model(train_vectors, full_test, x_targets, y_targets)
+
+    axis_plot(fixations, predicted_x, predicted_y, sub)
+
+        x_res = []
+        y_res = []
+
+        for num in range(27):
+
+            nums = num * 5
+
+            for values in range(5):
+                error_x = (abs(x_targets[num] - predicted_x[nums + values])) ** 2
+                error_y = (abs(y_targets[num] - predicted_y[nums + values])) ** 2
+                x_res.append(error_x)
+                y_res.append(error_y)
+
+        x_error = np.sqrt(np.sum(np.array(x_res)) / 135)
+        y_error = np.sqrt(np.sum(np.array(y_res)) / 135)
+        print([x_error, y_error])
+
+        params.loc[sub, 'x_error_reg'] = x_error
+        params.loc[sub, 'y_error_reg'] = y_error
+        params.to_csv('subj_params.csv')
+        print('participant ' + str(sub) + ' complete')
+
+general_classifier(reg_list)
+
+# #############################################################################
 # Visualize error vs motion
 
-params = pd.read_csv('subj_params.csv', index_col='subject')
-params = params[params['x_error'] < 50000][params['y_error'] < 50000][params['mean_fd'] < 3.8][params['dvars'] < 1.5]
-
+# params = pd.read_csv('subj_params.csv', index_col='subject')
+# params = params[params['x_error'] < 50000][params['y_error'] < 50000][params['mean_fd'] < 3.8][params['dvars'] < 1.5]
+#
 # # Need to fix script to not rely on indexing and instead include a subset based on mean and stdv parameters
 # num_part = len(params)
 #
