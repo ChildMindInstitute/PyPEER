@@ -1,12 +1,14 @@
 import os
 import csv
+import pickle
 import numpy as np
 import pandas as pd
 import nibabel as nib
 from sklearn.svm import SVR
 from scipy.stats import ttest_rel
 import matplotlib.pyplot as plt
-from sklearn.model_selection import GridSearchCV
+from sklearn.externals import joblib
+from datetime import datetime
 
 
 def gs_regress(data, xb, xe, yb, ye, zb, ze):
@@ -44,9 +46,29 @@ def gs_regress(data, xb, xe, yb, ye, zb, ze):
     return data
 
 
+def mean_center_var_norm(data):
+
+    volumes = data.shape[3]
+
+    for x in range(data.shape[0]):
+        for y in range(data.shape[1]):
+            for z in range(data.shape[2]):
+                vmean = np.mean(np.array(data[x, y, z, :]))
+                vstdev = np.std(np.array(data[x, y, z, :]))
+
+                for time in range(volumes):
+                    if vstdev != 0:
+                        data[x, y, z, time] = (float(data[x, y, z, time]) - float(vmean))/vstdev
+                    else:
+                        data[x, y, z, time] = float(data[x, y, z, time]) - float(vmean)
+
+
+    return data
+
+
 def remove_out(group):
 
-    temp = params[group][:-5].tolist()
+    temp = params[group][:22].tolist()
     temp = [float(x) for x in temp]
     temp_mean = np.array(temp).mean()
     temp_stdv = np.array(temp).std()
@@ -57,32 +79,31 @@ def remove_out(group):
     return modified_group
 
 
-def create_model(train_vectors, test_vectors, x_targets, y_targets):
+def create_model(train_vectors, x_targets, y_targets):
+    startTime = datetime.now()
 
-    print('making model')
+    print('Making model')
 
-    # GridSearch Model
-    # GS_model = SVR(kernel='linear', verbose=2)
-    # GS_model = SVR(kernel='linear')
-    x_model = SVR(kernel='linear', C=100, epsilon=.01)
-    print('Completed x model')
-    y_model = SVR(kernel='linear', C=100, epsilon=.01)
+    x_model = SVR(kernel='linear', C=100, epsilon=.01, verbose=2)
+    y_model = SVR(kernel='linear', C=100, epsilon=.01, verbose=2)
     x_model.fit(train_vectors, x_targets)
     y_model.fit(train_vectors, y_targets)
-    predicted_x = x_model.predict(test_vectors)
-    print('Completed x model predictions')
-    predicted_y = y_model.predict(test_vectors)
-    print('Completed y model predictions')
-    parameters = {'kernel': ('linear', 'poly'), 'C': [100, 1000],
-                  'epsilon': [.01, .005, .001]}
-    # clfx = GridSearchCV(GS_model, parameters)
-    # clfx.fit(train_vectors, x_targets)
-    # clfy = GridSearchCV(GS_model, parameters)
-    # clfy.fit(train_vectors, y_targets)
-    # predicted_x = clfx.predict(test_vectors)
-    # predicted_y = clfy.predict(test_vectors)
 
-    print('model created')
+    # x_save = pickle.dumps(x_model)
+    # joblib.dump(x_save, 'x_model_1_resample50.pkl')
+    # y_save = pickle.dumps(y_model)
+    # joblib.dump(y_save, 'y_model_1_resample50.pkl')
+    print('\nRuntime: ' + str(datetime.now() - startTime))
+
+    return x_model, y_model
+
+
+def predict_fixations(x_model, y_model, test_vectors):
+
+    predicted_x = x_model.predict(test_vectors)
+    print('\nCompleted x model predictions')
+    predicted_y = y_model.predict(test_vectors)
+    print('\nCompleted y model predictions')
 
     return predicted_x, predicted_y
 
@@ -153,54 +174,17 @@ def rmse_hist(save=False):
     params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
     params = params[params['scan_count'] == str(3)]
 
-    x_1 = remove_out('x_error_1')
-    y_1 = remove_out('y_error_1')
-    x_b = remove_out('x_error_gsr')
-    y_b = remove_out('y_error_gsr')
-    x_3 = remove_out('x_error_3')
-    y_3 = remove_out('y_error_3')
-    x_n = remove_out('x_error')
-    y_n = remove_out('y_error')
+    x_1 = remove_out('x_error_reg')
+    y_1 = remove_out('y_error_reg')
+    x_b = remove_out('x_error_within')
+    y_b = remove_out('y_error_within')
 
-    xbins = np.histogram(np.hstack((x_1, x_b, x_3)), bins=30)[1]
-    ybins = np.histogram(np.hstack((y_1, y_b, y_3)), bins=30)[1]
-
-    # Training Set
-    plt.figure(figsize=(8, 8))
-    plt.hist([y_1, y_3, y_b], xbins, stacked=False, color=['red', 'blue', 'green'], label=['PEER 1', 'PEER 3', 'PEER 1&3'])
-    plt.xlabel('RMSE (y-direction)')
-    plt.ylabel('Number of participants')
-    plt.title('RMSE Distribution by Training Set (y-direction)')
-    plt.xlim([0, 3000])
-    plt.legend()
-    plt.savefig(os.path.join(output_path, 'training_set_comparison_y'), bbox_inches='tight', dpi=600)
-    plt.show()
-
-    # GSR vs Non-GSR
-    plt.figure(figsize=(8, 8))
-    plt.hist([x_n, x_b], 35, stacked=False, color=['red', 'blue'], label=['No-GSR', 'GSR'])
-    plt.title('RMSE Distribution for GSR and non-GSR data (x-direction)')
-    plt.ylabel('Number of participants')
-    plt.xlabel('RMSE (x-direction)')
-    plt.legend()
-    plt.savefig(os.path.join(output_path, 'gsr_comparison_x'), bbox_inches='tight', dpi=600)
-    plt.show()
-
-    # x vs y
-    plt.figure(figsize=(8, 8))
-    plt.hist([x_b, y_b], 35, stacked=False, color=['red', 'blue'], label=['x', 'y'])
-    plt.title('RMSE Distribution by Axis')
-    plt.xlabel('RMSE')
-    plt.ylabel('Number of participants')
-    plt.xlim([0, 3000])
-    plt.legend()
-    # plt.savefig(os.path.join(output_path, 'x_y'), bbox_inches='tight', dpi=600)
-    plt.show()
+    xbins = np.histogram(np.hstack((x_1, x_b)), bins=15)[1]
+    ybins = np.histogram(np.hstack((y_1, y_b)), bins=15)[1]
 
     plt.figure()
-    plt.hist(x_1, xbins, color='r', alpha=.5, label='PEER 1')
-    plt.hist(x_b, xbins, color='g', alpha=.5, label='PEER 1&3')
-    plt.hist(x_3, xbins, color='b', alpha=.5, label='PEER 3')
+    plt.hist(x_1, xbins, color='r', alpha=.5, label='Subject')
+    plt.hist(x_b, xbins, color='g', alpha=.5, label='General')
     plt.title('RMSE distribution in the x-direction')
     plt.ylabel('Number of participants')
     plt.xlabel('RMSE (x-direction)')
@@ -211,9 +195,8 @@ def rmse_hist(save=False):
         plt.savefig(os.path.join(output_path, 'x_dir_histogram'), bbox_inches='tight', dpi=600)
 
     plt.figure()
-    plt.hist(y_1, ybins, color='r', alpha=.5, label='PEER 1')
-    plt.hist(y_b, ybins, color='g', alpha=.5, label='PEER 1&3')
-    plt.hist(y_3, ybins, color='b', alpha=.5, label='PEER 3')
+    plt.hist(y_1, ybins, color='r', alpha=.5, label='Subject')
+    plt.hist(y_b, ybins, color='g', alpha=.5, label='General')
     plt.legend()
     plt.title('RMSE distribution in the y-direction')
     plt.ylabel('Number of participants')
@@ -226,10 +209,10 @@ def rmse_hist(save=False):
     plt.show()
 
 
-def axis_plot(fixations, predicted_x, predicted_y, subj):
+def axis_plot(fixations, predicted_x, predicted_y, subj, train_sets=1):
 
-    x_targets = np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2
-    y_targets = np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2
+    x_targets = np.repeat(np.array(fixations['pos_x']), 5*train_sets) * monitor_width / 2
+    y_targets = np.repeat(np.array(fixations['pos_y']), 5*train_sets) * monitor_height / 2
 
     time_series = range(0, len(predicted_x))
 
@@ -680,11 +663,11 @@ def regi_peer(reg_list):
     for sub in reg_list:
 
         print('starting participant ' + str(sub))
-        scan1 = nib.load('/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/sub-5139710_ses-1/motion_correct_to_standard/_scan_peer_run-1/sub-5139710_task-peer_run-1_bold_calc_tshift_resample_volreg_antswarp.nii.gz')
+        scan1 = nib.load(resample_path + sub + '/peer1_eyes.nii.gz')
         scan1 = scan1.get_data()
-        scan2 = nib.load('/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/sub-5139710_ses-1/motion_correct_to_standard/_scan_peer_run-2/sub-5139710_task-peer_run-2_bold_calc_tshift_resample_volreg_antswarp.nii.gz')
+        scan2 = nib.load(resample_path + sub + '/peer2_eyes.nii.gz')
         scan2 = scan2.get_data()
-        scan3 = nib.load('/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/sub-5139710_ses-1/motion_correct_to_standard/_scan_peer_run-3/sub-5139710_task-peer_run-3_bold_calc_tshift_resample_volreg_antswarp.nii.gz')
+        scan3 = nib.load(resample_path + sub + '/peer3_eyes.nii.gz')
         scan3 = scan3.get_data()
 
         for item in [scan1, scan2, scan3]:
@@ -697,7 +680,8 @@ def regi_peer(reg_list):
 
         for item in [scan1, scan2, scan3]:
 
-            item = gs_regress(item, 0, 90, 0, 108, 0, 90)
+            item = mean_center_var_norm(item)
+            item = gs_regress(item, 0, item.shape[0] - 1, 0, item.shape[1] - 1, 0, item.shape[2] - 1)
 
         listed1 = []
         listed2 = []
@@ -707,15 +691,15 @@ def regi_peer(reg_list):
 
         for tr in range(int(scan1.shape[3])):
 
-            tr_data1 = scan1[15:75,73:105,3:34,tr]
+            tr_data1 = scan1[:, :, :, tr]
             vectorized1 = np.array(tr_data1.ravel())
             listed1.append(vectorized1)
 
-            tr_data2 = scan3[15:75,73:105,3:34,tr]
+            tr_data2 = scan3[:, :, :, tr]
             vectorized2 = np.array(tr_data2.ravel())
             listed2.append(vectorized2)
 
-            te_data = scan2[15:75,73:105,3:34,tr]
+            te_data = scan2[:, :, :, tr]
             vectorized_testing = np.array(te_data.ravel())
             listed_testing.append(vectorized_testing)
 
@@ -742,9 +726,11 @@ def regi_peer(reg_list):
         # #############################################################################
         # Create SVR Model
 
-        predicted_x, predicted_y = create_model(train_vectors, test_vectors, x_targets, y_targets)
+        x_model, y_model = create_model(train_vectors, x_targets, y_targets)
 
-        axis_plot(fixations, predicted_x, predicted_y, sub)
+        predicted_x, predicted_y = predict_fixations(x_model, y_model, test_vectors)
+
+        axis_plot(fixations, predicted_x, predicted_y, sub, train_sets=1)
 
         x_res = []
         y_res = []
@@ -802,7 +788,10 @@ plt.show()
 # #############################################################################
 # Generalizable classifier
 
-eye_mask = nib.load('/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_eye_mask.nii.gz')
+cpac_path = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/'
+
+# eye_mask = nib.load('/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_eye_mask.nii.gz')
+eye_mask = nib.load('/data2/Projects/Jake/eye_eroded.nii.gz')
 eye_mask = eye_mask.get_data()
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
@@ -810,34 +799,83 @@ sub_ref = params.index.values.tolist()
 
 reg_list = []
 
+params = pd.read_csv('subj_params.csv', index_col='subject')
+
 with open('subj_params.csv', 'a') as updated_params:
     writer = csv.writer(updated_params)
 
-    for subject in os.listdir('/data2/Projects/Jake/Registration_complete/'):
-        if any(subject in x for x in sub_ref) and 'txt' not in subject:
-            if str(params.loc[subject, 'x_error_reg']) != 'nan':
-                reg_list.append(subject)
+    for subject in os.listdir(cpac_path):
+
+        subject = subject.replace('_ses-1', '')
+        try:
+            if int(params.loc[subject, 'scan_count']) == 3:
+                if float(params.loc[subject, 'x_error_gsr']) < 400:
+                    if float(params.loc[subject, 'y_error_gsr']) < 400:
+                        reg_list.append(subject)
+        except:
+            continue
+
+reg_list = reg_list[:50]
+
+# with open('subj_params.csv', 'a') as updated_params:
+#     writer = csv.writer(updated_params)
+#
+#     for subject in os.listdir(cpac_path):
+#         if any(subject in x for x in sub_ref) and 'txt' not in subject:
+#             if str(params.loc[subject, 'x_error_reg']) != 'nan':
+#                 reg_list.append(subject)
+
+eye_mask = nib.load('/data2/Projects/Jake/Resampled/eye_all_sub.nii.gz')
+eye_mask = eye_mask.get_data()
 
 reg_list = ['sub-5161675', 'sub-5169146', 'sub-5343770', 'sub-5375858', 'sub-5581172', 'sub-5629350',
             'sub-5637071', 'sub-5797959', 'sub-5930252', 'sub-5974505']
 
+reg_list = ['sub-5438434', 'sub-5171285', 'sub-5909780', 'sub-5637071', 'sub-5292617', 'sub-5917648',
+            'sub-5665223', 'sub-5375858', 'sub-5862879', 'sub-5124198', 'sub-5072464', 'sub-5469524',
+            'sub-5385307', 'sub-5271530', 'sub-5481682', 'sub-5905922', 'sub-5773707', 'sub-5745590',
+            'sub-5185233', 'sub-5696548', 'sub-5054883', 'sub-5484500', 'sub-5171529', 'sub-5340375',
+            'sub-5270411', 'sub-5378545', 'sub-5032610', 'sub-5310335', 'sub-5984037', 'sub-5814325',
+            'sub-5169146', 'sub-5289010', 'sub-5351657', 'sub-5707321', 'sub-5604492', 'sub-5974505',
+            'sub-5307785', 'sub-5303849', 'sub-5986705', 'sub-5787700', 'sub-5659524', 'sub-5844932',
+            'sub-5263388', 'sub-5397290', 'sub-5161062', 'sub-5797339', 'sub-5975698', 'sub-5260373',
+            'sub-5276304']
 
+reg_list = ['sub-5002891', 'sub-5005437']
+
+reg_list = ['sub-5986705','sub-5375858','sub-5292617','sub-5397290','sub-5844932','sub-5787700','sub-5797959',
+            'sub-5378545','sub-5085726','sub-5984037','sub-5076391','sub-5263388','sub-5171285',
+            'sub-5917648','sub-5814325','sub-5169146','sub-5484500','sub-5481682','sub-5232535','sub-5905922',
+            'sub-5975698','sub-5986705','sub-5343770']
+
+train_set_count = len(reg_list) - 1
+
+resample_path = '/data2/Projects/Jake/Resampled/'
 
 
 def general_classifier(reg_list):
+
+    funcTime = datetime.now()
 
     train_vectors1 = []
     train_vectors2 = []
     test_vectors = []
 
-    for sub in reg_list[:6]:
+    for sub in reg_list[:train_set_count]:
 
         print('starting participant ' + str(sub))
-        scan1 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer1_warped.nii.gz')
+        # scan1 = nib.load(cpac_path + sub + '_ses-1/motion_correct_to_standard/_scan_peer_run-1/' + sub + '_task-peer_run-1_bold_calc_tshift_resample_volreg_antswarp.nii.gz')
+        # scan1 = scan1.get_data()
+        # scan2 = nib.load(cpac_path + sub + '_ses-1/motion_correct_to_standard/_scan_peer_run-2/' + sub + '_task-peer_run-2_bold_calc_tshift_resample_volreg_antswarp.nii.gz')
+        # scan2 = scan2.get_data()
+        # scan3 = nib.load(cpac_path + sub + '_ses-1/motion_correct_to_standard/_scan_peer_run-3/' + sub + '_task-peer_run-3_bold_calc_tshift_resample_volreg_antswarp.nii.gz')
+        # scan3 = scan3.get_data()
+
+        scan1 = nib.load(resample_path + sub + '/peer1_eyes.nii.gz')
         scan1 = scan1.get_data()
-        scan2 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer2_warped.nii.gz')
+        scan2 = nib.load(resample_path + sub + '/peer2_eyes.nii.gz')
         scan2 = scan2.get_data()
-        scan3 = nib.load('/data2/Projects/Jake/Registration_complete/' + str(sub) + '/peer3_warped.nii.gz')
+        scan3 = nib.load(resample_path + sub + '/peer3_eyes.nii.gz')
         scan3 = scan3.get_data()
 
         for item in [scan1, scan2, scan3]:
@@ -850,7 +888,8 @@ def general_classifier(reg_list):
 
         for item in [scan1, scan2, scan3]:
 
-            item = gs_regress(item, 0, 90, 0, 108, 0, 90)
+            item = mean_center_var_norm(item)
+            item = gs_regress(item, 0, item.shape[0]-1, 0, item.shape[1]-1, 0, item.shape[2]-1)
 
         listed1 = []
         listed2 = []
@@ -860,15 +899,15 @@ def general_classifier(reg_list):
 
         for tr in range(int(scan1.shape[3])):
 
-            tr_data1 = scan1[15:75,73:105,3:34,tr]
+            tr_data1 = scan1[:,:,:, tr]
             vectorized1 = np.array(tr_data1.ravel())
             listed1.append(vectorized1)
 
-            tr_data2 = scan3[15:75,73:105,3:34,tr]
+            tr_data2 = scan3[:,:,:, tr]
             vectorized2 = np.array(tr_data2.ravel())
             listed2.append(vectorized2)
 
-            te_data = scan2[15:75,73:105,3:34,tr]
+            te_data = scan2[:,:,:, tr]
             vectorized_testing = np.array(te_data.ravel())
             listed_testing.append(vectorized_testing)
 
@@ -880,8 +919,8 @@ def general_classifier(reg_list):
     full_test = []
     full_train2 = []
 
-    for part in range(len(reg_list[:6])):
-        for vect in range(135):
+    for part in range(len(reg_list[:train_set_count])):
+        for vect in range(scan1.shape[3]):
             full_train1.append(train_vectors1[part][vect])
             full_test.append(test_vectors[part][vect])
             full_train2.append(train_vectors2[part][vect])
@@ -903,18 +942,28 @@ def general_classifier(reg_list):
     print('importing fixations')
 
     fixations = pd.read_csv('stim_vals.csv')
-    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), len(reg_list[:6])) * monitor_width / 2, 3 - 1)
-    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), len(reg_list[:6])) * monitor_height / 2, 3 - 1)
+    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), len(reg_list[:train_set_count])) * monitor_width / 2, 3 - 1)
+    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), len(reg_list[:train_set_count])) * monitor_height / 2, 3 - 1)
 
         # #############################################################################
         # Create SVR Model
 
-    predicted_x, predicted_y = create_model(train_vectors, full_test, x_targets, y_targets)
+    x_model, y_model = create_model(train_vectors, x_targets, y_targets)
+    print('Training completed: ' + str(datetime.now() - funcTime))
 
-    axis_plot(fixations, predicted_x, predicted_y, sub)
+    for gen in range(len(reg_list)):
+
+    # gen = 1
+        gen = gen+1
+        predicted_x = x_model.predict(full_test[scan1.shape[3]*(gen-1):scan1.shape[3]*(gen)])
+        predicted_y = y_model.predict(full_test[scan1.shape[3]*(gen-1):scan1.shape[3]*(gen)])
+        axis_plot(fixations, predicted_x, predicted_y, sub, train_sets=1)
+
 
         x_res = []
         y_res = []
+
+        sub = reg_list[gen-1]
 
         for num in range(27):
 
@@ -930,12 +979,32 @@ def general_classifier(reg_list):
         y_error = np.sqrt(np.sum(np.array(y_res)) / 135)
         print([x_error, y_error])
 
-        params.loc[sub, 'x_error_reg'] = x_error
-        params.loc[sub, 'y_error_reg'] = y_error
+        params.loc[sub, 'x_error_within'] = x_error
+        params.loc[sub, 'y_error_within'] = y_error
         params.to_csv('subj_params.csv')
         print('participant ' + str(sub) + ' complete')
 
-general_classifier(reg_list)
+
+x_targets = np.repeat(np.array(fixations['pos_x']), 5 * 1) * monitor_width / 2
+y_targets = np.repeat(np.array(fixations['pos_y']), 5 * 1) * monitor_height / 2
+
+time_series = range(0, len(p1))
+
+plt.figure(figsize=(15, 10))
+plt.subplot(2, 1, 1)
+plt.ylabel('Horizontal position')
+plt.plot(time_series, x_targets, '.-', color='k', label='Fixations')
+plt.plot(time_series, p1, '.-', color='b', label='General')
+plt.plot(time_series, p3, '.-', color='r', label='Subject')
+plt.legend()
+plt.subplot(2, 1, 2)
+plt.ylabel('Vertical position')
+plt.xlabel('TR')
+plt.plot(time_series, y_targets, '.-', color='k', label='Fixations')
+plt.plot(time_series, p2, '.-', color='b', label='General')
+plt.plot(time_series, p4, '.-', color='r', label='Subject')
+plt.legend()
+plt.show()
 
 # #############################################################################
 # Visualize error vs motion
@@ -979,27 +1048,3 @@ general_classifier(reg_list)
 # plt.scatter(dvars_list, y_error_list, s=5)
 # plt.plot(dvars_list, m4*dvars_list + b4, '-', color='r')
 # plt.show()
-
-# #############################################################################
-# Visualization for one participant (per fixation)
-
-# plt.figure()
-# axes = plt.gca()
-# axes.set_xlim([-1200, 1200])
-# axes.set_ylim([-900, 900])
-# for num in [0, 3, 5, 7, 10, 15, 21, 24]:
-#     nums = num * 5
-#     if num not in [18, 25]:
-#         plt.scatter(x_targets[num], y_targets[num], color='k', marker='x')
-#         plt.scatter(predicted_x[nums:nums+5], predicted_y[nums:nums+5])
-# plt.show()
-
-# #############################################################################
-# Visualization for one participant in each direction
-
-
-
-# # #############################################################################
-# # Histogram for RMSE distribution after outlier removal
-
-# rmse_hist()
