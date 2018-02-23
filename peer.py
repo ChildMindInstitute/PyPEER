@@ -1,14 +1,12 @@
 import os
 import csv
-import pickle
 import numpy as np
 import pandas as pd
 import nibabel as nib
 from sklearn.svm import SVR
-from scipy.stats import ttest_rel
-import matplotlib.pyplot as plt
-from sklearn.externals import joblib
 from datetime import datetime
+import matplotlib.pyplot as plt
+from scipy.stats import ttest_rel
 
 
 def gs_regress(data, xb, xe, yb, ye, zb, ze):
@@ -62,7 +60,6 @@ def mean_center_var_norm(data):
                     else:
                         data[x, y, z, time] = float(data[x, y, z, time]) - float(vmean)
 
-
     return data
 
 
@@ -80,6 +77,7 @@ def remove_out(group):
 
 
 def create_model(train_vectors, x_targets, y_targets):
+
     startTime = datetime.now()
 
     print('Making model')
@@ -89,10 +87,6 @@ def create_model(train_vectors, x_targets, y_targets):
     x_model.fit(train_vectors, x_targets)
     y_model.fit(train_vectors, y_targets)
 
-    # x_save = pickle.dumps(x_model)
-    # joblib.dump(x_save, 'x_model_1_resample50.pkl')
-    # y_save = pickle.dumps(y_model)
-    # joblib.dump(y_save, 'y_model_1_resample50.pkl')
     print('\nRuntime: ' + str(datetime.now() - startTime))
 
     return x_model, y_model
@@ -639,6 +633,7 @@ print([p1_ptx, p1_p3x, p1_pty, p1_p3y])
 # Test registered data
 
 eye_mask = nib.load('/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_eye_mask.nii.gz')
+eye_mask = nib.load('/home/json/Desktop/peer/coef_map_threshold_5.nii.gz')
 eye_mask = eye_mask.get_data()
 
 params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
@@ -828,21 +823,6 @@ reg_list = reg_list[:50]
 eye_mask = nib.load('/data2/Projects/Jake/Resampled/eye_all_sub.nii.gz')
 eye_mask = eye_mask.get_data()
 
-reg_list = ['sub-5161675', 'sub-5169146', 'sub-5343770', 'sub-5375858', 'sub-5581172', 'sub-5629350',
-            'sub-5637071', 'sub-5797959', 'sub-5930252', 'sub-5974505']
-
-reg_list = ['sub-5438434', 'sub-5171285', 'sub-5909780', 'sub-5637071', 'sub-5292617', 'sub-5917648',
-            'sub-5665223', 'sub-5375858', 'sub-5862879', 'sub-5124198', 'sub-5072464', 'sub-5469524',
-            'sub-5385307', 'sub-5271530', 'sub-5481682', 'sub-5905922', 'sub-5773707', 'sub-5745590',
-            'sub-5185233', 'sub-5696548', 'sub-5054883', 'sub-5484500', 'sub-5171529', 'sub-5340375',
-            'sub-5270411', 'sub-5378545', 'sub-5032610', 'sub-5310335', 'sub-5984037', 'sub-5814325',
-            'sub-5169146', 'sub-5289010', 'sub-5351657', 'sub-5707321', 'sub-5604492', 'sub-5974505',
-            'sub-5307785', 'sub-5303849', 'sub-5986705', 'sub-5787700', 'sub-5659524', 'sub-5844932',
-            'sub-5263388', 'sub-5397290', 'sub-5161062', 'sub-5797339', 'sub-5975698', 'sub-5260373',
-            'sub-5276304']
-
-reg_list = ['sub-5002891', 'sub-5005437']
-
 reg_list = ['sub-5986705','sub-5375858','sub-5292617','sub-5397290','sub-5844932','sub-5787700','sub-5797959',
             'sub-5378545','sub-5085726','sub-5984037','sub-5076391','sub-5263388','sub-5171285',
             'sub-5917648','sub-5814325','sub-5169146','sub-5484500','sub-5481682','sub-5232535','sub-5905922',
@@ -1006,7 +986,7 @@ plt.plot(time_series, p4, '.-', color='r', label='Subject')
 plt.legend()
 plt.show()
 
-# #######
+# #############################################################################
 # Creating a coefficient of variation map
 
 total = nib.load('/data2/Projects/Jake/coef_var/total.nii.gz')
@@ -1025,7 +1005,48 @@ for x in range(data.shape[0]):
                 coef_array[x, y, z] = float(vstdev/vmean)
 
 img = nib.Nifti1Image(coef_array, np.eye(4))
+img.header['pixdim'] = np.array([-1, 3, 3, 3, .80500031, 0, 0, 0])
 img.to_filename('/home/json/Desktop/peer/coef_map.nii.gz')
+
+modified = nib.load('/home/json/Desktop/peer/coef_map.nii.gz')
+data = modified.get_data()
+
+for x in range(data.shape[0]):
+    for y in range(data.shape[1]):
+        for z in range(data.shape[2]):
+            if data[x, y, z] < .5:
+                data[x, y, z] = 1
+            else:
+                data[x, y, z] = 0
+
+img = nib.Nifti1Image(data, np.eye(4))
+img.header['pixdim'] = np.array([-1, 3, 3, 3, .80500031, 0, 0, 0])
+img.to_filename('/home/json/Desktop/peer/coef_map_threshold_5.nii.gz')
+
+# #############################################################################
+# Get distribution of voxel intensities from isolated eye coefficient of variation map to determine intensity threshold
+
+coef_sub = nib.load('/home/json/Desktop/peer/coef_map_sub.nii.gz')
+data = coef_sub.get_data()
+
+data_rav = data.ravel()
+
+xbins = np.histogram(data_rav, bins=30)[1]
+
+values, base = np.histogram(data_rav, bins=30)
+cumulative = np.cumsum(values)
+
+plt.figure()
+plt.hist(data_rav/len(data_rav), xbins, color='b')
+plt.title('Full Raw')
+# plt.savefig('/home/json/Desktop/peer/eye_distr.png')
+plt.show()
+# plt.plot(base[:-1], cumulative/len(data_rav), color='g')
+# plt.show()
+
+# Determine percentiles
+values, base = np.histogram(data_rav, bins=100)
+# value_of_interest = base[percentile]
 
 # #############################################################################
 # Visualize error vs motion
