@@ -1006,6 +1006,27 @@ plt.plot(time_series, p4, '.-', color='r', label='Subject')
 plt.legend()
 plt.show()
 
+# #######
+# Creating a coefficient of variation map
+
+total = nib.load('/data2/Projects/Jake/coef_var/total.nii.gz')
+data = total.get_data()
+
+coef_array = np.zeros((data.shape[0], data.shape[1], data.shape[2]))
+
+for x in range(data.shape[0]):
+    for y in range(data.shape[1]):
+        for z in range(data.shape[2]):
+
+            vmean = np.mean(np.array(data[x, y, z, :]))
+            vstdev = np.std(np.array(data[x, y, z, :]))
+
+            for time in range(data.shape[3]):
+                coef_array[x, y, z] = float(vstdev/vmean)
+
+img = nib.Nifti1Image(coef_array, np.eye(4))
+img.to_filename('/home/json/Desktop/peer/coef_map.nii.gz')
+
 # #############################################################################
 # Visualize error vs motion
 
