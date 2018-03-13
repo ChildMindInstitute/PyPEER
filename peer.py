@@ -210,24 +210,25 @@ def axis_plot(fixations, predicted_x, predicted_y, subj, train_sets=1):
 
     time_series = range(0, len(predicted_x))
 
-    plt.figure()
-    plt.subplot(2, 1, 1)
-    plt.ylabel('Horizontal position')
-    plt.plot(time_series, x_targets, '.-', color='k')
-    plt.plot(time_series, predicted_x, '.-', color='b')
-    plt.subplot(2, 1, 2)
-    plt.ylabel('Vertical position')
-    plt.xlabel('TR')
-    plt.title('Participant ' + str(subj))
-    plt.plot(time_series, y_targets, '.-', color='k')
-    plt.plot(time_series, predicted_y, '.-', color='b')
-    # plt.savefig(os.path.join(output_path, 'peer_3.png'), bbox_inches='tight', dpi=600)
-    plt.show()
+    print(time_series)
+
+    # plt.figure()
+    # plt.subplot(2, 1, 1)
+    # plt.ylabel('Horizontal position')
+    # plt.plot(time_series, x_targets, '.-', color='k')
+    # plt.plot(time_series, predicted_x, '.-', color='b')
+    # plt.subplot(2, 1, 2)
+    # plt.ylabel('Vertical position')
+    # plt.xlabel('TR')
+    # # plt.title('Participant ' + str(subj))
+    # plt.plot(time_series, y_targets, '.-', color='k')
+    # plt.plot(time_series, predicted_y, '.-', color='b')
+    # # plt.savefig(os.path.join(output_path, subj + 'peer.png'), bbox_inches='tight', dpi=600)
+    # plt.show()
 
     return x_targets, y_targets
 
-# data_path = '/data2/Projects/Jake/Registration_Test/'
-data_path = '/data2/Projects/Jake/CBIC/'
+data_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 qap_path_RU = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/QAP/qap_functional_temporal.csv'
 qap_path_CBIC = '/data2/HBNcore/CMI_HBN_Data/MRI/CBIC/QAP/qap_functional_temporal.csv'
 output_path = '/home/json/Desktop/peer/Figures'
@@ -271,10 +272,6 @@ def standard_peer(subject_list, gsr=True, update=False):
 
     for name in subject_list:
 
-        xb = int(params.loc[name, 'x_start']); xe = int(params.loc[name, 'x_end'])
-        yb = int(params.loc[name, 'y_start']); ye = int(params.loc[name, 'y_end'])
-        zb = int(params.loc[name, 'z_start']); ze = int(params.loc[name, 'z_end'])
-
         try:
 
             print('Beginning analysis on participant ' + name)
@@ -307,8 +304,8 @@ def standard_peer(subject_list, gsr=True, update=False):
 
                     print('count = 2')
 
-                    training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
-                    testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
+                    training1_data = gs_regress(training1_data)
+                    testing_data = gs_regress(testing_data)
 
                 elif scan_count == 3:
 
@@ -635,11 +632,11 @@ print([p1_ptx, p1_p3x, p1_pty, p1_p3y])
 # Test registered data
 
 # eye_mask = nib.load('/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_eye_mask.nii.gz')
-# eye_mask = nib.load('/home/json/Desktop/peer/coef_map_threshold_05.nii.gz')
-eye_mask = nib.load('/data2/Projects/Jake/Resampled/eye_all_sub.nii.gz')
+eye_mask = nib.load('/data2/Projects/Jake/eye_masks/2mm_eye_sub.nii.gz')
 eye_mask = eye_mask.get_data()
+resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 
-params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
+params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
 sub_ref = params.index.values.tolist()
 
 reg_list = []
@@ -647,13 +644,44 @@ reg_list = []
 with open('subj_params.csv', 'a') as updated_params:
     writer = csv.writer(updated_params)
 
-    for subject in os.listdir('/data2/Projects/Jake/Registration_complete/'):
+    for subject in os.listdir('/data2/Projects/Jake/Human_Brain_Mapping/'):
+        # if any(subject in x for x in sub_ref) and 'txt' not in subject and '.nii.gz' not in subject:
+        if 'txt' not in subject and '.nii.gz' not in subject:
+            reg_list.append(subject)
+
+with open('subj_params.csv', 'a') as updated_params:
+    writer = csv.writer(updated_params)
+
+    for subject in os.listdir(data_path):
         if any(subject in x for x in sub_ref) and 'txt' not in subject:
-            if str(params.loc[subject, 'x_error_reg']) == 'nan':
-                reg_list.append(subject)
+            print(subject + ' is already in subj_params.csv')
+        elif 'txt' not in subject:
+            writer.writerow([subject, x_b, x_e, y_b, y_e, z_b, z_e])
+            print('New participant ' + subject + ' was added')
+            subj_list.append(subject)
 
 # params = pd.read_csv('subj_params.csv', index_col='subject')
 # output = params[params['x_error_gsr'] < 350][params['y_error_gsr'] < 350][params['scan_count'] == 3]
+
+def string_to_list(sub, column):
+
+    output = params.loc[sub, column]
+    output = output[1:-1]
+
+    separation_index1 = 0
+    separation_index2 = 0
+
+    modified_list = []
+
+    for item in output:
+        separation_index2 += 1
+        if (item == ',') or (separation_index2 == len(output)):
+            modified_list.append(float(output[separation_index1:separation_index2-1]))
+            separation_index1 = separation_index2
+
+    return modified_list
+
+regi_peer(reg_list)
 
 def regi_peer(reg_list):
 
@@ -661,104 +689,113 @@ def regi_peer(reg_list):
     for sub in reg_list:
 
         print('starting participant ' + str(sub))
-        scan1 = nib.load(resample_path + sub + '/peer1_eyes.nii.gz')
-        scan1 = scan1.get_data()
-        scan2 = nib.load(resample_path + sub + '/peer2_eyes.nii.gz')
-        scan2 = scan2.get_data()
-        scan3 = nib.load(resample_path + sub + '/peer3_eyes.nii.gz')
-        scan3 = scan3.get_data()
-        # scan1 = nib.load('/home/json/Desktop/test.nii.gz')
-        # scan1 = scan1.get_data()
-        # scan2 = nib.load('/home/json/Desktop/test2.nii.gz')
-        # scan2 = scan2.get_data()
-        # scan3 = nib.load('/home/json/Desktop/test3.nii.gz')
-        # scan3 = scan3.get_data()
 
-        for item in [scan1, scan2, scan3]:
+        try:
+            scan1 = nib.load(resample_path + sub + '/peer1_eyes_sub.nii.gz')
+            scan1 = scan1.get_data()
+            print('Scan 1 loaded')
+            scan2 = nib.load(resample_path + sub + '/peer2_eyes_sub.nii.gz')
+            scan2 = scan2.get_data()
+            print('Scan 2 loaded')
+            scan3 = nib.load(resample_path + sub + '/peer3_eyes_sub.nii.gz')
+            scan3 = scan3.get_data()
+            print('Scan 3 loaded')
 
-            for vol in range(item.shape[3]):
+            for item in [scan1, scan2, scan3]:
 
-                output = np.multiply(eye_mask, item[:, :, :, vol])
+                for vol in range(item.shape[3]):
 
-                item[:, :, :, vol] = output
+                    output = np.multiply(eye_mask, item[:, :, :, vol])
 
-        for item in [scan1, scan2, scan3]:
+                    item[:, :, :, vol] = output
 
-            item = mean_center_var_norm(item)
-            item = gs_regress(item, 0, item.shape[0] - 1, 0, item.shape[1] - 1, 0, item.shape[2] - 1)
+            for item in [scan1, scan2, scan3]:
 
-        listed1 = []
-        listed2 = []
-        listed_testing = []
+                item = mean_center_var_norm(item)
+                item = gs_regress(item, 0, item.shape[0] - 1, 0, item.shape[1] - 1, 0, item.shape[2] - 1)
 
-        print('beginning vectors')
+            listed1 = []
+            listed2 = []
+            listed_testing = []
 
-        for tr in range(int(scan1.shape[3])):
+            print('beginning vectors')
 
-            tr_data1 = scan1[:, :, :, tr]
-            vectorized1 = np.array(tr_data1.ravel())
-            listed1.append(vectorized1)
+            for tr in range(int(scan1.shape[3])):
 
-            tr_data2 = scan3[:, :, :, tr]
-            vectorized2 = np.array(tr_data2.ravel())
-            listed2.append(vectorized2)
+                tr_data1 = scan1[:, :, :, tr]
+                vectorized1 = np.array(tr_data1.ravel())
+                listed1.append(vectorized1)
 
-            te_data = scan2[:, :, :, tr]
-            vectorized_testing = np.array(te_data.ravel())
-            listed_testing.append(vectorized_testing)
+                tr_data2 = scan3[:, :, :, tr]
+                vectorized2 = np.array(tr_data2.ravel())
+                listed2.append(vectorized2)
 
-        train_vectors1 = np.asarray(listed1)
-        test_vectors = np.asarray(listed_testing)
-        train_vectors2 = np.asarray(listed2)
+                te_data = scan2[:, :, :, tr]
+                vectorized_testing = np.array(te_data.ravel())
+                listed_testing.append(vectorized_testing)
 
-        # #############################################################################
-        # Averaging training signal
+            train_vectors1 = np.asarray(listed1)
+            test_vectors = np.asarray(listed_testing)
+            train_vectors2 = np.asarray(listed2)
 
-        print('average vectors')
+            # #############################################################################
+            # Averaging training signal
 
-        train_vectors = data_processing(3, train_vectors1, train_vectors2)
+            print('average vectors')
 
-        # #############################################################################
-        # Import coordinates for fixations
+            train_vectors = data_processing(3, train_vectors1, train_vectors2)
 
-        print('importing fixations')
+            # #############################################################################
+            # Import coordinates for fixations
 
-        fixations = pd.read_csv('stim_vals.csv')
-        x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 3 - 1)
-        y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 3 - 1)
+            print('importing fixations')
 
-        # #############################################################################
-        # Create SVR Model
+            fixations = pd.read_csv('stim_vals.csv')
+            x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 3 - 1)
+            y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 3 - 1)
 
-        x_model, y_model = create_model(train_vectors, x_targets, y_targets)
+            # #############################################################################
+            # Create SVR Model
 
-        predicted_x, predicted_y = predict_fixations(x_model, y_model, test_vectors)
+            x_model, y_model = create_model(train_vectors, x_targets, y_targets)
 
-        x_targets, y_targets = axis_plot(fixations, predicted_x, predicted_y, sub, train_sets=1)
+            predicted_x, predicted_y = predict_fixations(x_model, y_model, test_vectors)
+            predicted_x = [np.round(float(x),3) for x in predicted_x]
+            predicted_y = [np.round(float(x),3) for x in predicted_y]
 
-        print(compute_icc(predicted_x, x_targets))
+            x_targets, y_targets = axis_plot(fixations, predicted_x, predicted_y, sub, train_sets=1)
 
-        x_res = []
-        y_res = []
+            # x_corr = compute_icc(predicted_x, x_targets)
+            # y_corr = compute_icc(predicted_y, y_targets)
+            #
+            # x_res = []
+            # y_res = []
+            #
+            # for num in range(27):
+            #
+            #     nums = num * 5
+            #
+            #     for values in range(5):
+            #         error_x = (abs(x_targets[num] - predicted_x[nums + values])) ** 2
+            #         error_y = (abs(y_targets[num] - predicted_y[nums + values])) ** 2
+            #         x_res.append(error_x)
+            #         y_res.append(error_y)
+            #
+            # x_error = np.sqrt(np.sum(np.array(x_res)) / 135)
+            # y_error = np.sqrt(np.sum(np.array(y_res)) / 135)
+            # print([x_error, y_error])
+            #
+            # params.loc[sub, 'x_gsr'] = x_error
+            # params.loc[sub, 'y_gsr'] = y_error
+            # params.loc[sub, 'x_gsr_corr'] = x_corr
+            # params.loc[sub, 'y_gsr_corr'] = y_corr
+            params.loc[sub, 'x_gsr_predicted'] = predicted_x
+            params.loc[sub, 'y_gsr_predicted'] = predicted_y
+            params.to_csv('peer_didactics.csv')
+            print('participant ' + str(sub) + ' complete')
 
-        for num in range(27):
-
-            nums = num * 5
-
-            for values in range(5):
-                error_x = (abs(x_targets[num] - predicted_x[nums + values])) ** 2
-                error_y = (abs(y_targets[num] - predicted_y[nums + values])) ** 2
-                x_res.append(error_x)
-                y_res.append(error_y)
-
-        x_error = np.sqrt(np.sum(np.array(x_res)) / 135)
-        y_error = np.sqrt(np.sum(np.array(y_res)) / 135)
-        print([x_error, y_error])
-
-        params.loc[sub, 'x_error_reg'] = x_error
-        params.loc[sub, 'y_error_reg'] = y_error
-        params.to_csv('subj_params.csv')
-        print('participant ' + str(sub) + ' complete')
+        except:
+            continue
 
 full_list = os.listdir('/data2/Projects/Jake/Registration_complete/')
 
@@ -1277,42 +1314,42 @@ for item in ['x_coef_map_eyes_1.nii.gz', 'x_coef_map_eyes_5.nii.gz', 'x_coef_map
 # #############################################################################
 # Visualize error vs motion
 
-# params = pd.read_csv('subj_params.csv', index_col='subject')
-# params = params[params['x_error'] < 50000][params['y_error'] < 50000][params['mean_fd'] < 3.8][params['dvars'] < 1.5]
-#
-# # Need to fix script to not rely on indexing and instead include a subset based on mean and stdv parameters
-# num_part = len(params)
-#
-# x_error_list = params.loc[:, 'x_error'][:num_part].tolist()
-# y_error_list = params.loc[:, 'y_error'][:num_part].tolist()
-# mean_fd_list = params.loc[:, 'mean_fd'][:num_part].tolist()
-# dvars_list = params.loc[:, 'dvars'][:num_part].tolist()
-#
-# x_error_list = np.array([float(x) for x in x_error_list])
-# y_error_list = np.array([float(x) for x in y_error_list])
-# mean_fd_list = np.array([float(x) for x in mean_fd_list])
-# dvars_list = np.array([float(x) for x in dvars_list])
-#
-# m1, b1 = np.polyfit(mean_fd_list, x_error_list, 1)
-# m2, b2 = np.polyfit(mean_fd_list, y_error_list, 1)
-# m3, b3 = np.polyfit(dvars_list, x_error_list, 1)
-# m4, b4 = np.polyfit(dvars_list, y_error_list, 1)
-#
-# plt.figure(figsize=(8, 8))
-# plt.subplot(2, 2, 1)
-# plt.title('mean_fd vs. x_RMS')
-# plt.scatter(mean_fd_list, x_error_list, s=5)
-# plt.plot(mean_fd_list, m1*mean_fd_list + b1, '-', color='r')
-# plt.subplot(2, 2, 2)
-# plt.title('mean_fd vs. y_RMS')
-# plt.scatter(mean_fd_list, y_error_list, s=5)
-# plt.plot(mean_fd_list, m2*mean_fd_list + b2, '-', color='r')
-# plt.subplot(2, 2, 3)
-# plt.title('dvars vs. x_RMS')
-# plt.scatter(dvars_list, x_error_list, s=5)
-# plt.plot(dvars_list, m3*dvars_list + b3, '-', color='r')
-# plt.subplot(2, 2, 4)
-# plt.title('dvars vs. y_RMS')
-# plt.scatter(dvars_list, y_error_list, s=5)
-# plt.plot(dvars_list, m4*dvars_list + b4, '-', color='r')
-# plt.show()
+params = pd.read_csv('peer_didactics.csv', index_col='subject')
+params = params[params['x_gsr'] < 50000][params['y_gsr'] < 50000][params['mean_fd'] < 3.8][params['dvars'] < 1.5]
+
+# Need to fix script to not rely on indexing and instead include a subset based on mean and stdv parameters
+num_part = len(params)
+
+x_error_list = params.loc[:, 'x_gsr'][:num_part].tolist()
+y_error_list = params.loc[:, 'y_gsr'][:num_part].tolist()
+mean_fd_list = params.loc[:, 'mean_fd'][:num_part].tolist()
+dvars_list = params.loc[:, 'dvars'][:num_part].tolist()
+
+x_error_list = np.array([float(x) for x in x_error_list])
+y_error_list = np.array([float(x) for x in y_error_list])
+mean_fd_list = np.array([float(x) for x in mean_fd_list])
+dvars_list = np.array([float(x) for x in dvars_list])
+
+m1, b1 = np.polyfit(mean_fd_list, x_error_list, 1)
+m2, b2 = np.polyfit(mean_fd_list, y_error_list, 1)
+m3, b3 = np.polyfit(dvars_list, x_error_list, 1)
+m4, b4 = np.polyfit(dvars_list, y_error_list, 1)
+
+plt.figure(figsize=(8, 8))
+plt.subplot(2, 2, 1)
+plt.title('mean_fd vs. x_RMS')
+plt.scatter(mean_fd_list, x_error_list, s=5)
+plt.plot(mean_fd_list, m1*mean_fd_list + b1, '-', color='r')
+plt.subplot(2, 2, 2)
+plt.title('mean_fd vs. y_RMS')
+plt.scatter(mean_fd_list, y_error_list, s=5)
+plt.plot(mean_fd_list, m2*mean_fd_list + b2, '-', color='r')
+plt.subplot(2, 2, 3)
+plt.title('dvars vs. x_RMS')
+plt.scatter(dvars_list, x_error_list, s=5)
+plt.plot(dvars_list, m3*dvars_list + b3, '-', color='r')
+plt.subplot(2, 2, 4)
+plt.title('dvars vs. y_RMS')
+plt.scatter(dvars_list, y_error_list, s=5)
+plt.plot(dvars_list, m4*dvars_list + b4, '-', color='r')
+plt.show()
