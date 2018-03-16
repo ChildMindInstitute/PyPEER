@@ -210,8 +210,6 @@ def axis_plot(fixations, predicted_x, predicted_y, subj, train_sets=1):
 
     time_series = range(0, len(predicted_x))
 
-    print(time_series)
-
     # plt.figure()
     # plt.subplot(2, 1, 1)
     # plt.ylabel('Horizontal position')
@@ -227,6 +225,25 @@ def axis_plot(fixations, predicted_x, predicted_y, subj, train_sets=1):
     # plt.show()
 
     return x_targets, y_targets
+
+def movie_plot(predicted_x, predicted_y, subj, train_sets=1):
+
+    time_series = range(0, len(predicted_x))
+
+    plt.figure()
+    plt.subplot(2, 1, 1)
+    plt.ylabel('Horizontal position')
+    plt.plot(time_series, output1, '.-', color='b')
+    plt.plot(time_series, output3, '.-', color='r')
+    plt.subplot(2, 1, 2)
+    plt.ylabel('Vertical position')
+    plt.xlabel('TR')
+    plt.plot(time_series, output2, '.-', color='b')
+    plt.plot(time_series, output4, '.-', color='r')
+
+    plt.show()
+
+
 
 data_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 qap_path_RU = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/QAP/qap_functional_temporal.csv'
@@ -632,7 +649,7 @@ print([p1_ptx, p1_p3x, p1_pty, p1_p3y])
 # Test registered data
 
 # eye_mask = nib.load('/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_eye_mask.nii.gz')
-eye_mask = nib.load('/data2/Projects/Jake/eye_masks/2mm_eye_sub.nii.gz')
+eye_mask = nib.load('/data2/Projects/Jake/eye_masks/2mm_eye_corrected.nii.gz')
 eye_mask = eye_mask.get_data()
 resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 
@@ -685,8 +702,9 @@ regi_peer(reg_list)
 
 def regi_peer(reg_list):
 
-
     for sub in reg_list:
+
+        params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
 
         print('starting participant ' + str(sub))
 
@@ -694,12 +712,14 @@ def regi_peer(reg_list):
             scan1 = nib.load(resample_path + sub + '/peer1_eyes_sub.nii.gz')
             scan1 = scan1.get_data()
             print('Scan 1 loaded')
-            scan2 = nib.load(resample_path + sub + '/peer2_eyes_sub.nii.gz')
+            scan2 = nib.load(resample_path + sub + '/movie_TP_eyes_sub.nii.gz')
             scan2 = scan2.get_data()
             print('Scan 2 loaded')
             scan3 = nib.load(resample_path + sub + '/peer3_eyes_sub.nii.gz')
             scan3 = scan3.get_data()
             print('Scan 3 loaded')
+
+            print('Applying eye-mask')
 
             for item in [scan1, scan2, scan3]:
 
@@ -708,6 +728,8 @@ def regi_peer(reg_list):
                     output = np.multiply(eye_mask, item[:, :, :, vol])
 
                     item[:, :, :, vol] = output
+
+            print('Applying mean-centering with variance-normalization and GSR')
 
             for item in [scan1, scan2, scan3]:
 
@@ -729,6 +751,8 @@ def regi_peer(reg_list):
                 tr_data2 = scan3[:, :, :, tr]
                 vectorized2 = np.array(tr_data2.ravel())
                 listed2.append(vectorized2)
+
+            for tr in range(int(scan2.shape[3])):
 
                 te_data = scan2[:, :, :, tr]
                 vectorized_testing = np.array(te_data.ravel())
@@ -763,7 +787,8 @@ def regi_peer(reg_list):
             predicted_x = [np.round(float(x),3) for x in predicted_x]
             predicted_y = [np.round(float(x),3) for x in predicted_y]
 
-            x_targets, y_targets = axis_plot(fixations, predicted_x, predicted_y, sub, train_sets=1)
+            # x_targets, y_targets = axis_plot(fixations, predicted_x, predicted_y, sub, train_sets=1)
+            # movie_plot(predicted_x, predicted_y, sub, train_sets=1)
 
             # x_corr = compute_icc(predicted_x, x_targets)
             # y_corr = compute_icc(predicted_y, y_targets)
@@ -789,13 +814,81 @@ def regi_peer(reg_list):
             # params.loc[sub, 'y_gsr'] = y_error
             # params.loc[sub, 'x_gsr_corr'] = x_corr
             # params.loc[sub, 'y_gsr_corr'] = y_corr
-            params.loc[sub, 'x_gsr_predicted'] = predicted_x
-            params.loc[sub, 'y_gsr_predicted'] = predicted_y
+            params.loc[sub, 'x_tp'] = predicted_x
+            params.loc[sub, 'y_tp'] = predicted_y
             params.to_csv('peer_didactics.csv')
             print('participant ' + str(sub) + ' complete')
 
         except:
             continue
+
+
+import seaborn as sns;
+
+sns.set()
+
+ax = sns.heatmap(np.array(x_out))
+
+hm_df = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
+hm_df = hm_df.sort_values(by=['x_gsr_corr'], ascending=False)
+hm_df = hm_df.sort_values(by=[])
+heatmap_list = hm_df.index.values.tolist()
+
+x_hm = []
+y_hm = []
+count = 0
+
+x_temp = []
+y_temp = []
+
+for sub in heatmap_list:
+
+    try:
+
+        if count < 50:
+
+            x_out = np.array(string_to_list(sub, 'x_tp'))
+            y_out = np.array(string_to_list(sub, 'y_tp'))
+
+            x_temp.append(x_out)
+            y_temp.append(y_out)
+
+            if count == 0:
+
+                print('Initial')
+
+                x_hm = x_out
+                y_hm = y_out
+                count += 1
+
+            else:
+
+                print('Added')
+                x_hm = np.hstack([x_hm, x_out])
+                print('Completed x')
+                y_hm = np.hstack([y_hm, y_out])
+                print('Completed y')
+                count += 1
+
+        else:
+
+            break
+
+    except:
+
+        continue
+
+x_hm = np.stack(x_temp)
+y_hm = np.stack(y_temp)
+
+ax = sns.heatmap(x_hm)
+g = sns.clustermap(x_hm, row_cluster=False)
+
+
+
+
+
+
 
 full_list = os.listdir('/data2/Projects/Jake/Registration_complete/')
 
