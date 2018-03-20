@@ -680,9 +680,9 @@ with open('subj_params.csv', 'a') as updated_params:
 # params = pd.read_csv('subj_params.csv', index_col='subject')
 # output = params[params['x_error_gsr'] < 350][params['y_error_gsr'] < 350][params['scan_count'] == 3]
 
-def string_to_list(sub, column):
+def string_to_list(df, sub, column):
 
-    output = params.loc[sub, column]
+    output = df.loc[sub, column]
     output = output[1:-1]
 
     separation_index1 = 0
@@ -827,12 +827,17 @@ import seaborn as sns;
 
 sns.set()
 
-ax = sns.heatmap(np.array(x_out))
-
-hm_df = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
-hm_df = hm_df.sort_values(by=['x_gsr_corr'], ascending=False)
-hm_df = hm_df.sort_values(by=[])
+hm_df = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
+hm_df = hm_df.sort_values(by=['dvars'], ascending=False)
 heatmap_list = hm_df.index.values.tolist()
+
+params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
+
+fixations = pd.read_csv('stim_vals.csv')
+# x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 3 - 1)
+# y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 3 - 1)
+x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2, 1)
+y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 5) * monitor_width / 2, 1)
 
 x_hm = []
 y_hm = []
@@ -845,30 +850,32 @@ for sub in heatmap_list:
 
     try:
 
-        if count < 50:
+        if count < 100:
 
-            x_out = np.array(string_to_list(sub, 'x_tp'))
-            y_out = np.array(string_to_list(sub, 'y_tp'))
+            x_out = string_to_list(params, sub, 'x_gsr_predicted')
+            y_out = string_to_list(params, sub, 'y_gsr_predicted')
+
+            print(len(x_out), len(y_out), sub)
+
+            for x in range(len(x_out)):
+                if abs(x_out[x]) > 1000:
+                    x_out[x] = 0
+                else:
+                    x_out[x] = x_out[x]
+
+            for x in range(len(y_out)):
+                if abs(y_out[x]) > 1000:
+                    y_out[x] = 0
+                else:
+                    y_out[x] = y_out[x]
+
+            x_out = np.array(x_out)
+            y_out = np.array(y_out)
 
             x_temp.append(x_out)
             y_temp.append(y_out)
 
-            if count == 0:
-
-                print('Initial')
-
-                x_hm = x_out
-                y_hm = y_out
-                count += 1
-
-            else:
-
-                print('Added')
-                x_hm = np.hstack([x_hm, x_out])
-                print('Completed x')
-                y_hm = np.hstack([y_hm, y_out])
-                print('Completed y')
-                count += 1
+            count += 1
 
         else:
 
@@ -878,14 +885,38 @@ for sub in heatmap_list:
 
         continue
 
+# Black line
+
+arr = np.zeros(135)
+arr = np.array([-800 for x in arr])
+
+x_temp.append(arr)
+y_temp.append(arr)
+x_temp.append(arr)
+y_temp.append(arr)
+
+for sub in range(3):
+    x_temp.append(x_targets)
+    y_temp.append(y_targets)
+
 x_hm = np.stack(x_temp)
 y_hm = np.stack(y_temp)
 
-ax = sns.heatmap(x_hm)
-g = sns.clustermap(x_hm, row_cluster=False)
+ax = sns.heatmap(y_hm)
 
+g = sns.clustermap(y_hm, row_cluster=False)
 
+# Add 3 subjects thick fixation line at bottom of carpet plot
+# Run bash script on DM movie (isolate roi first)
+# Run carpet plot across all subjects and not just ones with low motion
 
+from sklearn.neural_network import MLPClassifier
+
+clf = MLPClassifier(solver='adam', alpha=.0001, hidden_layer_sizes=(135, 45, 15), max_iter=2000, verbose=True, tol=.001)
+
+# clf.fit(train_data, train_targets)
+# predictions = clf.predict(test_data)
+# predi_probs = clf.predict_proba(test_data)
 
 
 
