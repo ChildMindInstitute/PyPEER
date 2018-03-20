@@ -284,35 +284,86 @@ def update_subjects(site='RU'):
 
         scan_count = int(params[params.subject == sub].scan_count)
 
-        if scan_count == 3:
+        try:
 
-            fd1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['RMSD (Mean)'])
-            fd2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_2')]['RMSD (Mean)'])
-            fd3 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_3')]['RMSD (Mean)'])
-            dv1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
-            dv2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
-            dv3 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
+            if scan_count == 3:
 
-            fdm = np.average([fd1, fd2, fd3])
-            dvm = np.average([dv1, dv2, dv3])
+                fd1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['RMSD (Mean)'])
+                fd2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_2')]['RMSD (Mean)'])
+                fd3 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_3')]['RMSD (Mean)'])
+                dv1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
+                dv2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_2')]['Std. DVARS (Mean)'])
+                dv3 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_3')]['Std. DVARS (Mean)'])
 
-        elif scan_count == 2:
+                fdm = np.average([fd1, fd2, fd3])
+                dvm = np.average([dv1, dv2, dv3])
 
-            fd1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['RMSD (Mean)'])
-            fd2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_2')]['RMSD (Mean)'])
-            dv1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
-            dv2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
+            elif scan_count == 2:
 
-            fdm = np.average([fd1, fd2])
-            dvm = np.average([dv1, dv2])
+                fd1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['RMSD (Mean)'])
+                fd2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_2')]['RMSD (Mean)'])
+                dv1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
+                dv2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_2')]['Std. DVARS (Mean)'])
+
+                fdm = np.average([fd1, fd2])
+                dvm = np.average([dv1, dv2])
+
+            else:
+                print('Not enough scans to update motion measures for subject ' + str(sub))
+                fdm = np.nan
+                dvm = np.nan
+
+            params = params.set_index('subject')
+            params.loc[sub, 'mean_fd'] = fdm
+            params.loc[sub, 'dvars'] = dvm
+            params.to_csv('peer_didactics.csv')
+
+        except:
+
+            print('Error with transferring over motion measures for subject' + str(sub))
+
+            continue
+
+def string_to_list(df, sub, column):
+
+    output = df.loc[sub, column]
+    output = output[1:-1]
+
+    separation_index1 = 0
+    separation_index2 = 0
+
+    modified_list = []
+
+    for item in output:
+        separation_index2 += 1
+        if (item == ',') or (separation_index2 == len(output)):
+            modified_list.append(float(output[separation_index1:separation_index2-1]))
+            separation_index1 = separation_index2
+
+    return modified_list
 
 
-        else:
-            print('Not enough scans to update motion measures')
+def compute_icc(x, y):
+    """
+    This function computes the inter-class correlation (ICC) of the
+    two classes represented by the x and y numpy vectors.
+    """
+    n = len(x)
 
-        params = params.set_index('subject')
-        params.loc[sub, 'mean_fd'] = fdm
-        params.loc[sub, 'dvars'] = dvm
-        params.to_csv('peer_didactics.csv')
+    if all(x == y):
+        return 1
 
+    Sx = sum(x); Sy = sum(y);
+    Sxx = sum(x*x); Sxy = sum( (x+y)**2 )/2; Syy = sum(y*y)
 
+    fact = ((Sx + Sy)**2)/(n*2)
+    SS_tot = Sxx + Syy - fact
+    SS_among = Sxy - fact
+    SS_error = SS_tot - SS_among
+
+    MS_error = SS_error/n
+    MS_among = SS_among/(n-1)
+
+    ICC = (MS_among - MS_error) / (MS_among + MS_error)
+
+    return ICC

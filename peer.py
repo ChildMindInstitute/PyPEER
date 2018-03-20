@@ -348,32 +348,6 @@ def icc_peer(subject_list, gsr=False, update=False, scan=1):
 
             print('Error processing participant')
 
-
-def compute_icc(x, y):
-    """
-    This function computes the inter-class correlation (ICC) of the
-    two classes represented by the x and y numpy vectors.
-    """
-    n = len(x)
-
-    if all(x == y):
-        return 1
-
-    Sx = sum(x); Sy = sum(y);
-    Sxx = sum(x*x); Sxy = sum( (x+y)**2 )/2; Syy = sum(y*y)
-
-    fact = ((Sx + Sy)**2)/(n*2)
-    SS_tot = Sxx + Syy - fact
-    SS_among = Sxy - fact
-    SS_error = SS_tot - SS_among
-
-    MS_error = SS_error/n
-    MS_among = SS_among/(n-1)
-
-    ICC = (MS_among - MS_error) / (MS_among + MS_error)
-
-    return ICC
-
 # #############################################################################
 # Test registered data
 
@@ -383,51 +357,7 @@ eye_mask = eye_mask.get_data()
 resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 
 params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
-sub_ref = params.index.values.tolist()
-
-reg_list = []
-
-with open('subj_params.csv', 'a') as updated_params:
-    writer = csv.writer(updated_params)
-
-    for subject in os.listdir('/data2/Projects/Jake/Human_Brain_Mapping/'):
-        # if any(subject in x for x in sub_ref) and 'txt' not in subject and '.nii.gz' not in subject:
-        if 'txt' not in subject and '.nii.gz' not in subject:
-            reg_list.append(subject)
-
-with open('subj_params.csv', 'a') as updated_params:
-    writer = csv.writer(updated_params)
-
-    for subject in os.listdir(data_path):
-        if any(subject in x for x in sub_ref) and 'txt' not in subject:
-            print(subject + ' is already in subj_params.csv')
-        elif 'txt' not in subject:
-            writer.writerow([subject, x_b, x_e, y_b, y_e, z_b, z_e])
-            print('New participant ' + subject + ' was added')
-            subj_list.append(subject)
-
-# params = pd.read_csv('subj_params.csv', index_col='subject')
-# output = params[params['x_error_gsr'] < 350][params['y_error_gsr'] < 350][params['scan_count'] == 3]
-
-def string_to_list(df, sub, column):
-
-    output = df.loc[sub, column]
-    output = output[1:-1]
-
-    separation_index1 = 0
-    separation_index2 = 0
-
-    modified_list = []
-
-    for item in output:
-        separation_index2 += 1
-        if (item == ',') or (separation_index2 == len(output)):
-            modified_list.append(float(output[separation_index1:separation_index2-1]))
-            separation_index1 = separation_index2
-
-    return modified_list
-
-regi_peer(reg_list)
+reg_list = params.index.values.tolist()
 
 def regi_peer(reg_list):
 
@@ -436,6 +366,8 @@ def regi_peer(reg_list):
         params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
 
         print('starting participant ' + str(sub))
+
+        scan_count = int(params.loc[sub, 'scan_count'])
 
         try:
             scan1 = nib.load(resample_path + sub + '/peer1_eyes_sub.nii.gz')
@@ -642,6 +574,11 @@ def regi_peer(reg_list):
 
 # #############################################################################
 # Generalizable classifier
+
+
+# #############################################################################
+# Misc
+
 
 cpac_path = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/'
 
