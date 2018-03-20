@@ -1,4 +1,5 @@
 import os
+import os.path
 import csv
 import numpy as np
 import pandas as pd
@@ -226,19 +227,92 @@ def axis_plot(fixations, predicted_x, predicted_y, subj, train_sets=1):
 
     return x_targets, y_targets
 
-def movie_plot(predicted_x, predicted_y, subj, train_sets=1):
 
-    time_series = range(0, len(predicted_x))
+def update_subjects(site='RU'):
 
-    plt.figure()
-    plt.subplot(2, 1, 1)
-    plt.ylabel('Horizontal position')
-    plt.plot(time_series, output1, '.-', color='b')
-    plt.plot(time_series, output3, '.-', color='r')
-    plt.subplot(2, 1, 2)
-    plt.ylabel('Vertical position')
-    plt.xlabel('TR')
-    plt.plot(time_series, output2, '.-', color='b')
-    plt.plot(time_series, output4, '.-', color='r')
+    # Include new participants from os.listdir()
 
-    plt.show()
+    resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
+
+    params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
+    sub_ref = params.index.values.tolist()
+
+    with open('peer_didactics.csv', 'a') as updated_params:
+        writer = csv.writer(updated_params)
+
+        for subject in os.listdir(resample_path):
+            if (any(subject in x for x in sub_ref)) and ('txt' not in subject):
+                print(subject + ' is already in subj_params.csv')
+            elif 'txt' not in subject:
+                writer.writerow([subject])
+                print('New participant ' + subject + ' was added')
+
+    # Include site, scan_count
+
+    if site == 'RU':
+        qap_path = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/QAP/qap_functional_temporal.csv'
+    elif site == 'CBIC':
+        qap_path = '/data2/HBNcore/CMI_HBN_Data/MRI/CBIC/QAP/qap_functional_temporal.csv'
+
+    qap = pd.read_csv(qap_path, dtype=object)
+    qap['Participant'] = qap['Participant'].str.replace('_', '-')
+
+    params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
+    sub_list = params.index.values.tolist()
+
+    for sub in sub_list:
+
+        print('Obtaining site and number of complete calibration scans for subject ' + str(sub))
+
+        params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
+
+        scan_count = int(os.path.isfile(resample_path + sub + '/peer1_eyes_sub.nii.gz')) + \
+                     int(os.path.isfile(resample_path + sub + '/peer2_eyes_sub.nii.gz')) + \
+                     int(os.path.isfile(resample_path + sub + '/peer3_eyes_sub.nii.gz'))
+
+        params.loc[sub, 'scan_count'] = scan_count
+        params.loc[sub, 'site'] = site
+        params.to_csv('peer_didactics.csv')
+
+    # Include motion measures
+
+    for sub in sub_list:
+
+        print('Obtaining motion measures for subject ' + str(sub))
+
+        params = pd.read_csv('peer_didactics.csv', dtype=object)
+
+        scan_count = int(params[params.subject == sub].scan_count)
+
+        if scan_count == 3:
+
+            fd1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['RMSD (Mean)'])
+            fd2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_2')]['RMSD (Mean)'])
+            fd3 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_3')]['RMSD (Mean)'])
+            dv1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
+            dv2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
+            dv3 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
+
+            fdm = np.average([fd1, fd2, fd3])
+            dvm = np.average([dv1, dv2, dv3])
+
+        elif scan_count == 2:
+
+            fd1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['RMSD (Mean)'])
+            fd2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_2')]['RMSD (Mean)'])
+            dv1 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
+            dv2 = float(qap[(qap.Participant == sub) & (qap.Series == 'func_peer_run_1')]['Std. DVARS (Mean)'])
+
+            fdm = np.average([fd1, fd2])
+            dvm = np.average([dv1, dv2])
+
+
+        else:
+            print('Not enough scans to update motion measures')
+
+        params = params.set_index('subject')
+        params.loc[sub, 'mean_fd'] = fdm
+        params.loc[sub, 'dvars'] = dvm
+        params.to_csv('peer_didactics.csv')
+
+
