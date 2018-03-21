@@ -662,26 +662,21 @@ def update_output(params, sub, x_error_sk, y_error_sk, x_corr, y_corr, predicted
     print('Update output')
 
     params.loc[sub, 'rmse_x_gsr'] = x_error_sk
-    params.update(params)
     params.loc[sub, 'rmse_y_gsr'] = y_error_sk
-    params.update(params)
     params.loc[sub, 'corr_x_gsr'] = x_corr
-    params.update(params)
     params.loc[sub, 'corr_y_gsr'] = y_corr
-    params.update(params)
     params.loc[sub, 'pred_x_gsr'] = predicted_x
-    params.update(params)
     params.loc[sub, 'pred_y_gsr'] = predicted_y
-    params.update(params)
     params.loc[sub, 'feat_x_gsr'] = [x for x in x_model.coef_[0]]
-    params.update(params)
     params.loc[sub, 'feat_y_gsr'] = [x for x in y_model.coef_[0]]
-    params.update(params)
-    # params.to_csv('model_outputs.csv')
+    params.to_csv('model_outputs.csv')
+
     print('participant ' + str(sub) + ' complete')
 
 
 def peer_hbm(sub, viewtype='calibration', gsr_='on'):
+
+    print('Starting with participant ' + str(sub))
 
     if gsr_ == 'on':
         gsr_ = 1
@@ -706,23 +701,28 @@ def peer_hbm(sub, viewtype='calibration', gsr_='on'):
     if scan_count == 3:
 
         x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model = three_valid(sub, gsr_, second_file)
+        update_output(params, sub, x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model)
 
     elif scan_count == 2:
 
         x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model = two_valid(sub, gsr_, second_file)
+        update_output(params, sub, x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model)
 
-    print(x_corr, y_corr)
+    else:
 
-    update_output(params, sub, x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model)
+        print('Not enough scans for analysis')
 
     # params.to_csv('model_outputs.csv')
 
 params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
 sub_list = params.index.values.tolist()
 
-sub_list = ['sub-5343770', 'sub-5396885']
+update_dict = {sub: {'rmse_x': [], 'rmse_y': [], 'corr_x': [], 'corr_y': [], 'pred_x': [],
+                     'pred_y': [], 'x_model': [], 'y_model': []} for sub in sub_list}
 
-Parallel(n_jobs=2)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_='on')for sub in sub_list)
+
+
+Parallel(n_jobs=1)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_='on')for sub in sub_list)
 
 params.to_csv('model_outputs.csv')
 
