@@ -12,6 +12,8 @@ from sklearn.metrics import mean_squared_error
 from aux_process import *
 from joblib import Parallel, delayed
 import pickle
+import seaborn as sns
+import matplotlib.ticker as ticker
 
 monitor_width = 1680
 monitor_height = 1050
@@ -894,88 +896,144 @@ for sub in os.listdir(resample_path):
 
 Parallel(n_jobs=10)(delayed(peer_hbm)(sub, viewtype='tp', gsr_='on')for sub in sub_list)
 
-# import seaborn as sns;
-#
-# sns.set()
-#
-# hm_df = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
-# hm_df = hm_df.sort_values(by=['dvars'], ascending=False)
-# heatmap_list = hm_df.index.values.tolist()
-#
-# params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
-#
-# fixations = pd.read_csv('stim_vals.csv')
-# # x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 3 - 1)
-# # y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 3 - 1)
-# x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2, 1)
-# y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 5) * monitor_width / 2, 1)
-#
-# x_hm = []
-# y_hm = []
-# count = 0
-#
-# x_temp = []
-# y_temp = []
-#
-# for sub in heatmap_list:
-#
-#     try:
-#
-#         if count < 100:
-#
-#             x_out = string_to_list(params, sub, 'x_gsr_predicted')
-#             y_out = string_to_list(params, sub, 'y_gsr_predicted')
-#
-#             print(len(x_out), len(y_out), sub)
-#
-#             for x in range(len(x_out)):
-#                 if abs(x_out[x]) > 1000:
-#                     x_out[x] = 0
-#                 else:
-#                     x_out[x] = x_out[x]
-#
-#             for x in range(len(y_out)):
-#                 if abs(y_out[x]) > 1000:
-#                     y_out[x] = 0
-#                 else:
-#                     y_out[x] = y_out[x]
-#
-#             x_out = np.array(x_out)
-#             y_out = np.array(y_out)
-#
-#             x_temp.append(x_out)
-#             y_temp.append(y_out)
-#
-#             count += 1
-#
-#         else:
-#
-#             break
-#
-#     except:
-#
-#         continue
-#
-# # Black line
-#
-# arr = np.zeros(135)
-# arr = np.array([-800 for x in arr])
-#
-# x_temp.append(arr)
-# y_temp.append(arr)
-# x_temp.append(arr)
-# y_temp.append(arr)
-#
-# for sub in range(3):
-#     x_temp.append(x_targets)
-#     y_temp.append(y_targets)
-#
-# x_hm = np.stack(x_temp)
-# y_hm = np.stack(y_temp)
-#
-# ax = sns.heatmap(y_hm)
-#
-# g = sns.clustermap(y_hm, row_cluster=False)
+def pred_aggregate(gsr_status='on', viewtype='calibration', motion_type='mean_fd'):
+
+    if gsr_status == 'off':
+        filename = 'predictions_no_gsr.csv'
+        outname = viewtype + '_no_gsr_' + motion_type
+    elif gsr_status == 'on':
+        if viewtype == 'calibration':
+            filename = 'predictions_gsr.csv'
+            outname = viewtype + '_gsr_' + motion_type
+        elif viewtype == 'tp':
+            filename = 'tppredictions.csv'
+            outname = 'tp_' + motion_type
+        elif viewtype == 'dm':
+            filename = 'dmpredictions.csv'
+            outname = 'dm_' + motion_type
+
+    outname_x = outname + str('_x')
+    outname_y = outname + str('_y')
+
+    monitor_width = 1680
+    monitor_height = 1050
+
+    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+    params = params.convert_objects(convert_numeric=True)
+    params = params[(params.scan_count == 3)]
+    params = params.sort_values(by=motion_type, ascending=True)
+
+    sub_list = params.index.values.tolist()
+
+    x_temp = []
+    y_temp = []
+    count = 0
+
+    for sub in sub_list:
+
+        try:
+
+            if count < len(sub_list):
+
+                data = pd.read_csv(resample_path + str(sub) + '/'+ filename)
+                x_out = list(data['x_pred'])
+                y_out = list(data['y_pred'])
+
+                if count == 0:
+                    expected_len = len(x_out)
+
+                if expected_len == len(x_out):
+
+                    for x in range(len(x_out)):
+                        if abs(x_out[x]) > monitor_width/2 + .10 * monitor_width:
+                            x_out[x] = 0
+                        else:
+                            x_out[x] = x_out[x]
+
+                    for x in range(len(y_out)):
+                        if abs(y_out[x]) > monitor_height/2 + .10 * monitor_height:
+                            y_out[x] = 0
+                        else:
+                            y_out[x] = y_out[x]
+
+                    x_out = np.array(x_out)
+                    y_out = np.array(y_out)
+
+                    x_temp.append(x_out)
+                    y_temp.append(y_out)
+
+                count += 1
+
+            else:
+
+                break
+
+        except:
+
+            continue
+
+    # Import fixations
+
+    fixations = pd.read_csv('stim_vals.csv')
+    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2, 1)
+    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 5) * monitor_width / 2, 1)
+
+    arr = np.zeros(len(x_out))
+    arrx = np.array([-np.round(monitor_width/2, 0) for x in arr])
+    arry = np.array([-np.round(monitor_height/2, 0) for x in arr])
+
+    if viewtype == 'calibration':
+
+        for num in range(int(np.round(len(sub_list)*.02, 0))):
+            x_temp.append(arrx)
+            y_temp.append(arry)
+
+        for num in range(int(np.round(len(sub_list)*.02, 0))):
+            x_temp.append(x_targets)
+            y_temp.append(y_targets)
+
+    else:
+
+        for num in range(int(np.round(len(sub_list) * .02, 0))):
+            x_temp.append(arrx)
+            y_temp.append(arry)
+
+        for num in range(int(np.round(len(sub_list) * .02, 0))):
+            x_temp.append(np.mean(x_temp, axis=0))
+            y_temp.append(np.mean(y_temp, axis=0))
+
+    x_hm = np.stack(x_temp)
+    y_hm = np.stack(y_temp)
+
+    save_heatmap(x_hm, outname_x)
+    save_heatmap(y_hm, outname_y)
+
+    return x_hm, y_hm
+
+x_hm, y_hm = pred_aggregate(gsr_status='off', viewtype='calibration', motion_type='dvars')
+
+def save_heatmap(model, outname):
+
+    sns.set()
+    plt.clf()
+    ax = sns.heatmap(model)
+    ax.set(xlabel='Volumes', ylabel='Subjects')
+    ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(base=20))
+    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(base=100))
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/' + outname + '.png', dpi=600)
+    plt.show()
+
+for sub in os.listdir(resample_path):
+
+    gsr_pd = pd.read_csv(resample_path + sub + '/paramters_gsr.csv')
+    g_corr_x = gsr_pd['corr_x'][0]
+    g_corr_y = gsr_pd['corr_y'][0]
+    n_corr_x = int(pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')['corr_x'][0])
+    n_corr_y = int(pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')['corr_y'][0])
+
+g = sns.clustermap(x_hm, col_cluster=False)
 
 # Add 3 subjects thick fixation line at bottom of carpet plot
 # Run bash script on DM movie (isolate roi first)
