@@ -782,13 +782,11 @@ def update_output(params, gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, pre
 
     print('Updating output for subject ' + str(sub))
 
-    param_dict = {'x_feat': [], 'y_feat': [], 'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []}
+    param_dict = {'sub': [sub, sub],'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []}
     output_dict = {'x_pred': [], 'y_pred': []}
 
     if viewtype == 'calibration':
 
-        param_dict['x_feat'] = [x for x in x_model.coef_[0]]
-        param_dict['y_feat'] = [x for x in y_model.coef_[0]]
         param_dict['corr_x'] = x_corr
         param_dict['corr_y'] = y_corr
         param_dict['rmse_x'] = x_error_sk
@@ -822,14 +820,14 @@ def update_output(params, gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, pre
         output_dict['y_pred'] = predicted_y
 
         df_o = pd.DataFrame(output_dict)
-        df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/' + str(viewtype) + '_predictions.csv')
+        df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/' + str(viewtype) + 'predictions.csv')
 
     print('participant ' + str(sub) + ' complete')
 
 
 def peer_hbm(sub, viewtype='calibration', gsr_='on'):
 
-    print('Starting with participant ' + str(sub))
+    print('Starting with participant ' + str(sub) + ' for viewing ' + str(viewtype) + ' with gsr ' + str(gsr_))
 
     try:
 
@@ -850,7 +848,6 @@ def peer_hbm(sub, viewtype='calibration', gsr_='on'):
 
         if (viewtype == 'calibration') & (gsr_ == 1):
             second_file = '/peer2_eyes_sub.nii.gz'
-            output_dict = {'x_pred'}
             param_name = 'gsr_params.csv'
             save_name = 'gsr_pred.csv'
         elif (viewtype == 'calibration') & (gsr_ == 0):
@@ -887,7 +884,15 @@ def peer_hbm(sub, viewtype='calibration', gsr_='on'):
 params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
 sub_list = params.index.values.tolist()
 
-Parallel(n_jobs=20)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_='on')for sub in sub_list)
+sub_list = []
+
+for sub in os.listdir(resample_path):
+    if os.path.exists(resample_path + str(sub) + '/tppredictions.csv'):
+        continue
+    else:
+        sub_list.append(sub)
+
+Parallel(n_jobs=10)(delayed(peer_hbm)(sub, viewtype='tp', gsr_='on')for sub in sub_list)
 
 # import seaborn as sns;
 #
