@@ -14,6 +14,7 @@ from joblib import Parallel, delayed
 import pickle
 import seaborn as sns
 import matplotlib.ticker as ticker
+from pylab import pcolor, show, colorbar
 
 monitor_width = 1680
 monitor_height = 1050
@@ -1104,53 +1105,92 @@ create_swarms()
 # #############################################################################
 # Correlation matrix
 
-resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
-params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
-params = params.convert_objects(convert_numeric=True)
-params = params[(params.scan_count == 3) | (params.scan_count == 2)]
-sub_list = params.index.values.tolist()
+def create_corr_matrix():
 
-corr_matrix_tp_x = []
-corr_matrix_dm_x = []
-corr_matrix_tp_y = []
-corr_matrix_dm_y = []
-count = 0
+    resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
+    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+    params = params.convert_objects(convert_numeric=True)
+    params = params[(params.scan_count == 3) | (params.scan_count == 2)]
+    sub_list = params.index.values.tolist()
 
-for sub in sub_list:
+    corr_matrix_tp_x = []
+    corr_matrix_dm_x = []
+    corr_matrix_tp_y = []
+    corr_matrix_dm_y = []
+    count = 0
 
-    try:
+    for sub in sub_list:
 
-        if count == 0:
+        try:
 
-            expected_value = len(pd.read_csv(resample_path + sub + '/tppredictions.csv')['x_pred'])
-            count += 1
+            if count == 0:
 
-        tp_x = np.array(pd.read_csv(resample_path + sub + '/tppredictions.csv')['x_pred'])
-        tp_y = np.array(pd.read_csv(resample_path + sub + '/tppredictions.csv')['y_pred'])
-        dm_x = np.array(pd.read_csv(resample_path + sub + '/dmpredictions.csv')['x_pred'][:250])
-        dm_y = np.array(pd.read_csv(resample_path + sub + '/dmpredictions.csv')['y_pred'][:250])
+                expected_value = len(pd.read_csv(resample_path + sub + '/tppredictions.csv')['x_pred'])
+                count += 1
 
-        if (len(tp_x) == expected_value) & (len(dm_x) == expected_value):
+            tp_x = np.array(pd.read_csv(resample_path + sub + '/tppredictions.csv')['x_pred'])
+            tp_y = np.array(pd.read_csv(resample_path + sub + '/tppredictions.csv')['y_pred'])
+            dm_x = np.array(pd.read_csv(resample_path + sub + '/dmpredictions.csv')['x_pred'][:250])
+            dm_y = np.array(pd.read_csv(resample_path + sub + '/dmpredictions.csv')['y_pred'][:250])
 
-            corr_matrix_tp_x.append(tp_x)
-            corr_matrix_dm_x.append(tp_y)
-            corr_matrix_tp_y.append(dm_x)
-            corr_matrix_dm_y.append(dm_y)
+            if (len(tp_x) == expected_value) & (len(dm_x) == expected_value):
 
-    except:
+                corr_matrix_tp_x.append(tp_x)
+                corr_matrix_dm_x.append(tp_y)
+                corr_matrix_tp_y.append(dm_x)
+                corr_matrix_dm_y.append(dm_y)
 
-        continue
+        except:
 
-x_matrix = np.concatenate([corr_matrix_tp_x, corr_matrix_dm_x])
-y_matrix = np.concatenate([corr_matrix_tp_y, corr_matrix_dm_y])
+            continue
 
-from pylab import pcolor, show, colorbar, xticks, yticks
+    x_matrix = np.concatenate([corr_matrix_tp_x, corr_matrix_dm_x])
+    y_matrix = np.concatenate([corr_matrix_tp_y, corr_matrix_dm_y])
 
-corr_matrix_x = np.corrcoef(x_matrix)
-corr_matrix_y = np.corrcoef(y_matrix)
+    corr_matrix_x = np.corrcoef(x_matrix)
+    corr_matrix_y = np.corrcoef(y_matrix)
+
+    return corr_matrix_x, corr_matrix_y, corr_matrix_tp_x, corr_matrix_tp_y, corr_matrix_dm_x, corr_matrix_dm_y
+
+
+corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix()
+
 pcolor(corr_matrix_y)
 colorbar()
 show()
+
+# #############################################################################
+# SVM for binary classification
+
+from sklearn import svm
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import GridSearchCV
+
+# Create all dm and tp vectors with targets
+# Divide into training and testing sets
+
+corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix()
+
+dm_targets = ['dm' for x in range(len(dm_x))]
+tp_targets = ['tp' for x in range(len(tp_x))]
+
+tt_split = .50
+split_val = int(np.round(tt_split * len(tp_x), 0))
+
+train_data_x = np.concatenate([tp_x[:split_val], dm_x[:split_val]])
+test_data_x = np.concatenate([tp_x[split_val:], dm_x[split_val:]])
+train_data_y = np.concatenate([tp_y[:split_val], dm_y[:split_val]])
+test_data_y = np.concatenate([tp_y[split_val:], dm_y[split_val:]])
+train_targets_x = np.concatenate([tp_targets[:split_val], dm_targets[:split_val]])
+test_targets_x = np.concatenate([tp_targets[split_val:], dm_targets[split_val:]])
+
+clf = svm.SVC(C=100, tol=.0001, kernel='linear', verbose=1)
+
+clf.fit(train_data_x, train_targets_x)
+predictions = clf.predict(test_data_x)
+
+accuracy_score(predictions, test_targets_x)
+
 
 # #############################################################################
 # Generalizable classifier
