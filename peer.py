@@ -889,12 +889,14 @@ sub_list = params.index.values.tolist()
 sub_list = []
 
 for sub in os.listdir(resample_path):
-    if os.path.exists(resample_path + str(sub) + '/tppredictions.csv'):
+    if os.path.exists(resample_path + str(sub) + '/parameters_gsr.csv'):
         continue
     else:
         sub_list.append(sub)
 
-Parallel(n_jobs=10)(delayed(peer_hbm)(sub, viewtype='tp', gsr_='on')for sub in sub_list)
+sub_list = ['sub-5157882']
+
+Parallel(n_jobs=10)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_='on')for sub in sub_list)
 
 def pred_aggregate(gsr_status='on', viewtype='calibration', motion_type='mean_fd'):
 
@@ -920,7 +922,7 @@ def pred_aggregate(gsr_status='on', viewtype='calibration', motion_type='mean_fd
 
     params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
     params = params.convert_objects(convert_numeric=True)
-    params = params[(params.scan_count == 3)]
+    params = params[(params.scan_count == 3) | (params.scan_count == 2)]
     params = params.sort_values(by=motion_type, ascending=True)
 
     sub_list = params.index.values.tolist()
@@ -1025,19 +1027,74 @@ def save_heatmap(model, outname):
     plt.savefig('/home/json/Desktop/peer/hbm_figures/' + outname + '.png', dpi=600)
     plt.show()
 
-for sub in os.listdir(resample_path):
-
-    gsr_pd = pd.read_csv(resample_path + sub + '/paramters_gsr.csv')
-    g_corr_x = gsr_pd['corr_x'][0]
-    g_corr_y = gsr_pd['corr_y'][0]
-    n_corr_x = int(pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')['corr_x'][0])
-    n_corr_y = int(pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')['corr_y'][0])
-
 g = sns.clustermap(x_hm, col_cluster=False)
 
-# Add 3 subjects thick fixation line at bottom of carpet plot
-# Run bash script on DM movie (isolate roi first)
-# Run carpet plot across all subjects and not just ones with low motion
+g_corr_x = []
+g_corr_y = []
+n_corr_x = []
+n_corr_y = []
+g_rmse_x = []
+g_rmse_y = []
+n_rmse_x = []
+n_rmse_y = []
+
+params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+params = params.convert_objects(convert_numeric=True)
+params = params[params.scan_count == 3]
+sub_list = params.index.values.tolist()
+
+for sub in sub_list:
+
+    try:
+
+        gsr_pd = pd.read_csv(resample_path + sub + '/parameters_gsr.csv')
+        no_gsr_pd = pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')
+        g_corr_x.append(float(gsr_pd['corr_x'][0]))
+        g_corr_y.append(float(gsr_pd['corr_y'][0]))
+        g_rmse_x.append(float(gsr_pd['rmse_x'][0]))
+        g_rmse_y.append(float(gsr_pd['rmse_y'][0]))
+        n_corr_x.append(float(no_gsr_pd['corr_x'][0]))
+        n_corr_y.append(float(no_gsr_pd['corr_y'][0]))
+        n_rmse_x.append(float(no_gsr_pd['rmse_x'][0]))
+        n_rmse_y.append(float(no_gsr_pd['rmse_y'][0]))
+
+    except:
+
+        continue
+
+def create_swarms():
+
+    g_index = ['GSR' for x in range(len(g_corr_x))]
+    n_index = ['No GSR' for x in range(len(g_corr_x))]
+
+    tot = np.concatenate([g_index, n_index])
+    corr_x = np.concatenate([g_corr_x, n_corr_x])
+    corr_y = np.concatenate([g_corr_y, n_corr_y])
+    rmse_x = np.concatenate([g_rmse_x, n_rmse_x])
+    rmse_y = np.concatenate([g_rmse_y, n_rmse_y])
+
+    swarm_df = pd.DataFrame({'corr_x': corr_x, 'corr_y': corr_y, 'rmse_x': rmse_x, 'rmse_y': rmse_y, 'index': tot})
+
+    plt.clf()
+    ax = sns.swarmplot(x='index', y='corr_x', data=swarm_df)
+    ax.set(title='Correlation Distribution for GSR vs Non-GSR for x')
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/corr_x_comparison.png')
+    plt.clf()
+    ax = sns.swarmplot(x='index', y='corr_y', data=swarm_df)
+    ax.set(title='Correlation Distribution for GSR vs Non-GSR for y')
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/corr_y_comparison.png')
+    plt.clf()
+    ax = sns.swarmplot(x='index', y='rmse_x', data=swarm_df)
+    ax.set(title='RMSE Distribution for GSR vs Non-GSR for x')
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_x_comparison.png')
+    plt.clf()
+    ax = sns.swarmplot(x='index', y='rmse_y', data=swarm_df)
+    ax.set(title='RMSE Distribution for GSR vs Non-GSR for y')
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_y_comparison.png')
+
+create_swarms()
+
+
 
 
 # #############################################################################
@@ -1046,56 +1103,6 @@ g = sns.clustermap(x_hm, col_cluster=False)
 
 # #############################################################################
 # Misc
-
-
-cpac_path = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/'
-
-# eye_mask = nib.load('/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_eye_mask.nii.gz')
-# eye_mask = nib.load('/data2/Projects/Jake/eye_eroded.nii.gz')
-# eye_mask = eye_mask.get_data()
-#
-# params = pd.read_csv('subj_params.csv', index_col='subject', dtype=object)
-# sub_ref = params.index.values.tolist()
-#
-# reg_list = []
-#
-# params = pd.read_csv('subj_params.csv', index_col='subject')
-#
-# with open('subj_params.csv', 'a') as updated_params:
-#     writer = csv.writer(updated_params)
-#
-#     for subject in os.listdir(cpac_path):
-#
-#         subject = subject.replace('_ses-1', '')
-#         try:
-#             if int(params.loc[subject, 'scan_count']) == 3:
-#                 if float(params.loc[subject, 'x_error_gsr']) < 400:
-#                     if float(params.loc[subject, 'y_error_gsr']) < 400:
-#                         reg_list.append(subject)
-#         except:
-#             continue
-#
-# reg_list = reg_list[:50]
-#
-# # with open('subj_params.csv', 'a') as updated_params:
-# #     writer = csv.writer(updated_params)
-# #
-# #     for subject in os.listdir(cpac_path):
-# #         if any(subject in x for x in sub_ref) and 'txt' not in subject:
-# #             if str(params.loc[subject, 'x_error_reg']) != 'nan':
-# #                 reg_list.append(subject)
-#
-# eye_mask = nib.load('/home/json/Desktop/peer/coef_map_threshold_90.nii.gz')
-# eye_mask = eye_mask.get_data()
-#
-# reg_list = ['sub-5986705','sub-5375858','sub-5292617','sub-5397290','sub-5844932','sub-5787700','sub-5797959',
-#             'sub-5378545','sub-5085726','sub-5984037','sub-5076391','sub-5263388','sub-5171285',
-#             'sub-5917648','sub-5814325','sub-5169146','sub-5484500','sub-5481682','sub-5232535','sub-5905922',
-#             'sub-5975698','sub-5986705','sub-5343770']
-#
-# train_set_count = len(reg_list) - 1
-#
-# resample_path = '/data2/Projects/Jake/Resampled/'
 
 def general_classifier(reg_list):
 
