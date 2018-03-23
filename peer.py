@@ -1012,7 +1012,14 @@ def pred_aggregate(gsr_status='on', viewtype='calibration', motion_type='mean_fd
 
     return x_hm, y_hm
 
-x_hm, y_hm = pred_aggregate(gsr_status='off', viewtype='calibration', motion_type='dvars')
+x_hm, y_hm = pred_aggregate(gsr_status='off', viewtype='calibration', motion_type='mean_fd')
+
+for views in ['calibration', 'tp', 'dm']:
+    for motions in ['mean_fd', 'dvars']:
+        x_hm, y_hm = pred_aggregate(gsr_status = 'on', viewtype=views, motion_type=motions)
+
+for motions in ['mean_fd', 'dvars']:
+    x_hm, y_hm = pred_aggregate(gsr_status='off', viewtype='calibration', motion_type=motions)
 
 def save_heatmap(model, outname):
 
@@ -1029,40 +1036,40 @@ def save_heatmap(model, outname):
 
 g = sns.clustermap(x_hm, col_cluster=False)
 
-g_corr_x = []
-g_corr_y = []
-n_corr_x = []
-n_corr_y = []
-g_rmse_x = []
-g_rmse_y = []
-n_rmse_x = []
-n_rmse_y = []
-
-params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
-params = params.convert_objects(convert_numeric=True)
-params = params[params.scan_count == 3]
-sub_list = params.index.values.tolist()
-
-for sub in sub_list:
-
-    try:
-
-        gsr_pd = pd.read_csv(resample_path + sub + '/parameters_gsr.csv')
-        no_gsr_pd = pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')
-        g_corr_x.append(float(gsr_pd['corr_x'][0]))
-        g_corr_y.append(float(gsr_pd['corr_y'][0]))
-        g_rmse_x.append(float(gsr_pd['rmse_x'][0]))
-        g_rmse_y.append(float(gsr_pd['rmse_y'][0]))
-        n_corr_x.append(float(no_gsr_pd['corr_x'][0]))
-        n_corr_y.append(float(no_gsr_pd['corr_y'][0]))
-        n_rmse_x.append(float(no_gsr_pd['rmse_x'][0]))
-        n_rmse_y.append(float(no_gsr_pd['rmse_y'][0]))
-
-    except:
-
-        continue
-
 def create_swarms():
+
+    g_corr_x = []
+    g_corr_y = []
+    n_corr_x = []
+    n_corr_y = []
+    g_rmse_x = []
+    g_rmse_y = []
+    n_rmse_x = []
+    n_rmse_y = []
+
+    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+    params = params.convert_objects(convert_numeric=True)
+    params = params[params.scan_count == 3]
+    sub_list = params.index.values.tolist()
+
+    for sub in sub_list:
+
+        try:
+
+            gsr_pd = pd.read_csv(resample_path + sub + '/parameters_gsr.csv')
+            no_gsr_pd = pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')
+            g_corr_x.append(float(gsr_pd['corr_x'][0]))
+            g_corr_y.append(float(gsr_pd['corr_y'][0]))
+            g_rmse_x.append(float(gsr_pd['rmse_x'][0]))
+            g_rmse_y.append(float(gsr_pd['rmse_y'][0]))
+            n_corr_x.append(float(no_gsr_pd['corr_x'][0]))
+            n_corr_y.append(float(no_gsr_pd['corr_y'][0]))
+            n_rmse_x.append(float(no_gsr_pd['rmse_x'][0]))
+            n_rmse_y.append(float(no_gsr_pd['rmse_y'][0]))
+
+        except:
+
+            continue
 
     g_index = ['GSR' for x in range(len(g_corr_x))]
     n_index = ['No GSR' for x in range(len(g_corr_x))]
@@ -1094,8 +1101,56 @@ def create_swarms():
 
 create_swarms()
 
+# #############################################################################
+# Correlation matrix
 
+resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
+params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+params = params.convert_objects(convert_numeric=True)
+params = params[(params.scan_count == 3) | (params.scan_count == 2)]
+sub_list = params.index.values.tolist()
 
+corr_matrix_tp_x = []
+corr_matrix_dm_x = []
+corr_matrix_tp_y = []
+corr_matrix_dm_y = []
+count = 0
+
+for sub in sub_list:
+
+    try:
+
+        if count == 0:
+
+            expected_value = len(pd.read_csv(resample_path + sub + '/tppredictions.csv')['x_pred'])
+            count += 1
+
+        tp_x = np.array(pd.read_csv(resample_path + sub + '/tppredictions.csv')['x_pred'])
+        tp_y = np.array(pd.read_csv(resample_path + sub + '/tppredictions.csv')['y_pred'])
+        dm_x = np.array(pd.read_csv(resample_path + sub + '/dmpredictions.csv')['x_pred'][:250])
+        dm_y = np.array(pd.read_csv(resample_path + sub + '/dmpredictions.csv')['y_pred'][:250])
+
+        if (len(tp_x) == expected_value) & (len(dm_x) == expected_value):
+
+            corr_matrix_tp_x.append(tp_x)
+            corr_matrix_dm_x.append(tp_y)
+            corr_matrix_tp_y.append(dm_x)
+            corr_matrix_dm_y.append(dm_y)
+
+    except:
+
+        continue
+
+x_matrix = np.concatenate([corr_matrix_tp_x, corr_matrix_dm_x])
+y_matrix = np.concatenate([corr_matrix_tp_y, corr_matrix_dm_y])
+
+from pylab import pcolor, show, colorbar, xticks, yticks
+
+corr_matrix_x = np.corrcoef(x_matrix)
+corr_matrix_y = np.corrcoef(y_matrix)
+pcolor(corr_matrix_y)
+colorbar()
+show()
 
 # #############################################################################
 # Generalizable classifier
