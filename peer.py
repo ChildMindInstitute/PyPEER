@@ -15,6 +15,7 @@ import pickle
 import seaborn as sns
 import matplotlib.ticker as ticker
 from pylab import pcolor, show, colorbar
+from sklearn.metrics import mean_squared_error, r2_score
 
 monitor_width = 1680
 monitor_height = 1050
@@ -469,7 +470,7 @@ def regi_peer(reg_list):
 
 def three_valid(sub, gsr_, second_file, viewtype):
 
-    if viewtype == 'calibration':
+    if viewtype == 'calibration+++++':
 
         print('For analysis of subjects with three calibration scans')
 
@@ -599,8 +600,8 @@ def three_valid(sub, gsr_, second_file, viewtype):
         x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 2 - 1)
         y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 2 - 1)
 
-        x_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_gsr_model.sav', 'rb'))
-        y_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_gsr_model.sav', 'rb'))
+        x_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_no_gsr_model.sav', 'rb'))
+        y_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_no_gsr_model.sav', 'rb'))
 
     predicted_x, predicted_y = predict_fixations(x_model, y_model, test_vectors)
     predicted_x = np.array([np.round(float(x), 3) for x in predicted_x])
@@ -631,7 +632,7 @@ def two_valid(sub, gsr_, second_file, viewtype):
 
     print('For analysis of subjects with two calibration scans')
 
-    if viewtype == 'calibration':
+    if viewtype == 'calibration+++++++++++++++++++++++++++++++++':
 
         scan1 = nib.load(resample_path + sub + '/peer1_eyes_sub.nii.gz')
         scan1 = scan1.get_data()
@@ -706,8 +707,6 @@ def two_valid(sub, gsr_, second_file, viewtype):
 
     else:
 
-        # What needs to be changed to have all necessary parameters to predict? x_model, y_model, test_vectors
-
         scan2 = nib.load(resample_path + sub + second_file)
         scan2 = scan2.get_data()
         print('Scan 2 loaded')
@@ -753,8 +752,8 @@ def two_valid(sub, gsr_, second_file, viewtype):
         x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 2 - 1)
         y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 2 - 1)
 
-        x_model = pickle.load('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_gsr_model.sav', 'rb')
-        y_model = pickle.load('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_gsr_model.sav', 'rb')
+        x_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_no_gsr_train1_model.sav', 'rb'))
+        y_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_no_gsr_train1_model.sav', 'rb'))
 
     predicted_x, predicted_y = predict_fixations(x_model, y_model, test_vectors)
     predicted_x = np.array([np.round(float(x), 3) for x in predicted_x])
@@ -785,7 +784,7 @@ def update_output(params, gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, pre
 
     print('Updating output for subject ' + str(sub))
 
-    param_dict = {'sub': [sub, sub],'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []}
+    param_dict = {'sub': [sub, sub], 'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []}
     output_dict = {'x_pred': [], 'y_pred': []}
 
     if viewtype == 'calibration':
@@ -800,22 +799,22 @@ def update_output(params, gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, pre
         if gsr_ == 1:
 
             df_p = pd.DataFrame(param_dict)
-            df_p.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/parameters_gsr.csv')
+            df_p.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/parameters_no_gsr_train1.csv')
             df_o = pd.DataFrame(output_dict)
-            df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/predictions_gsr.csv')
+            df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/predictions_no_gsr_train1.csv')
 
-            pickle.dump(x_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_gsr_model.sav', 'wb'))
-            pickle.dump(y_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_gsr_model.sav', 'wb'))
+            pickle.dump(x_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_gsr_model_train1.sav', 'wb'))
+            pickle.dump(y_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_gsr_model_train1.sav', 'wb'))
 
         else:
 
             df_p = pd.DataFrame(param_dict)
-            df_p.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/parameters_no_gsr.csv')
+            df_p.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/parameters_no_gsr_train1.csv')
             df_o = pd.DataFrame(output_dict)
-            df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/predictions_no_gsr.csv')
+            df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/predictions_no_gsr_train1.csv')
 
-            pickle.dump(x_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_no_gsr_model.sav', 'wb'))
-            pickle.dump(y_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_no_gsr_model.sav', 'wb'))
+            # pickle.dump(x_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_no_gsr_train13_model.sav', 'wb'))
+            # pickle.dump(y_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_no_gsr_train13_model.sav', 'wb'))
 
     else:
 
@@ -823,7 +822,7 @@ def update_output(params, gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, pre
         output_dict['y_pred'] = predicted_y
 
         df_o = pd.DataFrame(output_dict)
-        df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/' + str(viewtype) + 'predictions.csv')
+        df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/' + str(save_name))
 
     print('participant ' + str(sub) + ' complete')
 
@@ -847,7 +846,9 @@ def peer_hbm(sub, viewtype='calibration', gsr_='on'):
 
         scan_count = int(params.loc[sub, 'scan_count'])
 
-        param_name = []
+        scan_count = 2
+        viewtype = 'calibration'
+        gsr_ = 0
 
         if (viewtype == 'calibration') & (gsr_ == 1):
             second_file = '/peer2_eyes_sub.nii.gz'
@@ -855,14 +856,14 @@ def peer_hbm(sub, viewtype='calibration', gsr_='on'):
             save_name = 'gsr_pred.csv'
         elif (viewtype == 'calibration') & (gsr_ == 0):
             second_file = '/peer2_eyes_sub.nii.gz'
-            param_name = 'no_gsr_params.csv'
-            save_name = 'no_gsr_pred.csv'
+            param_name = 'no_gsr_train1_params.csv'
+            save_name = 'no_gsr_train1_pred.csv'
         elif viewtype == 'tp':
             second_file = '/movie_TP_eyes_sub.nii.gz'
-            save_name = 'tp_pred.csv'
+            save_name = 'no_gsr_train1_tp_pred.csv'
         elif viewtype == 'dm':
             second_file = '/movie_DM_eyes_sub.nii.gz'
-            save_name = 'dm_pred.csv'
+            save_name = 'no_gsr_train1_dm_pred.csv'
 
         if scan_count == 3:
 
@@ -882,24 +883,16 @@ def peer_hbm(sub, viewtype='calibration', gsr_='on'):
 
         print('Error processing subject ' + str(sub))
 
-    # params.to_csv('model_outputs.csv')
+# params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+# params = params.convert_objects(convert_numeric=True)
+# params = params[params.scan_count == 3]
+# sub_list = params.index.values.tolist()
 
-params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
-sub_list = params.index.values.tolist()
+# Parallel(n_jobs=25)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_='off')for sub in sub_list)
+# Parallel(n_jobs=15)(delayed(peer_hbm)(sub, viewtype='tp', gsr_='off')for sub in sub_list)
+# Parallel(n_jobs=15)(delayed(peer_hbm)(sub, viewtype='dm', gsr_='off')for sub in sub_list)
 
-sub_list = []
-
-for sub in os.listdir(resample_path):
-    if os.path.exists(resample_path + str(sub) + '/parameters_gsr.csv'):
-        continue
-    else:
-        sub_list.append(sub)
-
-sub_list = ['sub-5157882']
-
-Parallel(n_jobs=10)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_='on')for sub in sub_list)
-
-def pred_aggregate(gsr_status='on', viewtype='calibration', motion_type='mean_fd'):
+def pred_aggregate(gsr_status='off', viewtype='calibration', motion_type='mean_fd'):
 
     if gsr_status == 'off':
         filename = 'predictions_no_gsr.csv'
@@ -925,8 +918,16 @@ def pred_aggregate(gsr_status='on', viewtype='calibration', motion_type='mean_fd
     params = params.convert_objects(convert_numeric=True)
     params = params[(params.scan_count == 3) | (params.scan_count == 2)]
     params = params.sort_values(by=motion_type, ascending=True)
-
     sub_list = params.index.values.tolist()
+
+    cov = pd.read_csv('Peer_pheno.csv', index_col='SubID')
+    cov = cov.convert_objects(convert_numeric=True)
+    cov = cov.sort_values(by='SWAN_HY', ascending=True)
+    cov_t = cov.index.values.tolist()
+
+    cov_t2 = ['sub-' + str(x) for x in cov_t]
+    cov_t3 = [x for x in cov_t2 if x in sub_list]
+    sub_list = cov_t3
 
     x_temp = []
     y_temp = []
@@ -1013,14 +1014,7 @@ def pred_aggregate(gsr_status='on', viewtype='calibration', motion_type='mean_fd
 
     return x_hm, y_hm
 
-x_hm, y_hm = pred_aggregate(gsr_status='off', viewtype='calibration', motion_type='mean_fd')
-
-for views in ['calibration', 'tp', 'dm']:
-    for motions in ['mean_fd', 'dvars']:
-        x_hm, y_hm = pred_aggregate(gsr_status = 'on', viewtype=views, motion_type=motions)
-
-for motions in ['mean_fd', 'dvars']:
-    x_hm, y_hm = pred_aggregate(gsr_status='off', viewtype='calibration', motion_type=motions)
+# x_hm, y_hm = pred_aggregate(gsr_status='off', viewtype='tp', motion_type='mean_fd')
 
 def save_heatmap(model, outname):
 
@@ -1032,10 +1026,8 @@ def save_heatmap(model, outname):
     ax.xaxis.set_major_locator(ticker.MultipleLocator(base=20))
     ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
     ax.yaxis.set_major_locator(ticker.MultipleLocator(base=100))
-    plt.savefig('/home/json/Desktop/peer/hbm_figures/' + outname + '.png', dpi=600)
+    # plt.savefig('/home/json/Desktop/peer/hbm_figures/' + outname + '.png', dpi=600)
     plt.show()
-
-g = sns.clustermap(x_hm, col_cluster=False)
 
 def create_swarms():
 
@@ -1059,21 +1051,22 @@ def create_swarms():
 
             gsr_pd = pd.read_csv(resample_path + sub + '/parameters_gsr.csv')
             no_gsr_pd = pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')
+            two_gsr_pd = pd.read_csv(resample_path + sub + '/parameters_gsr_two_scans.csv')
             g_corr_x.append(float(gsr_pd['corr_x'][0]))
             g_corr_y.append(float(gsr_pd['corr_y'][0]))
             g_rmse_x.append(float(gsr_pd['rmse_x'][0]))
             g_rmse_y.append(float(gsr_pd['rmse_y'][0]))
-            n_corr_x.append(float(no_gsr_pd['corr_x'][0]))
-            n_corr_y.append(float(no_gsr_pd['corr_y'][0]))
-            n_rmse_x.append(float(no_gsr_pd['rmse_x'][0]))
-            n_rmse_y.append(float(no_gsr_pd['rmse_y'][0]))
+            n_corr_x.append(float(two_gsr_pd['corr_x'][0]))
+            n_corr_y.append(float(two_gsr_pd['corr_y'][0]))
+            n_rmse_x.append(float(two_gsr_pd['rmse_x'][0]))
+            n_rmse_y.append(float(two_gsr_pd['rmse_y'][0]))
 
         except:
 
             continue
 
-    g_index = ['GSR' for x in range(len(g_corr_x))]
-    n_index = ['No GSR' for x in range(len(g_corr_x))]
+    g_index = ['Scan 1 & 3' for x in range(len(g_corr_x))]
+    n_index = ['Scan 1' for x in range(len(g_corr_x))]
 
     tot = np.concatenate([g_index, n_index])
     corr_x = np.concatenate([g_corr_x, n_corr_x])
@@ -1085,22 +1078,21 @@ def create_swarms():
 
     plt.clf()
     ax = sns.swarmplot(x='index', y='corr_x', data=swarm_df)
-    ax.set(title='Correlation Distribution for GSR vs Non-GSR for x')
-    plt.savefig('/home/json/Desktop/peer/hbm_figures/corr_x_comparison.png')
+    ax.set(title='Correlation Distribution for Different Training Sets in x')
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/corr_x_comparison_scans.png')
     plt.clf()
     ax = sns.swarmplot(x='index', y='corr_y', data=swarm_df)
-    ax.set(title='Correlation Distribution for GSR vs Non-GSR for y')
-    plt.savefig('/home/json/Desktop/peer/hbm_figures/corr_y_comparison.png')
+    ax.set(title='Correlation Distribution for Different Training Sets in y')
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/corr_y_comparison_scans.png')
     plt.clf()
     ax = sns.swarmplot(x='index', y='rmse_x', data=swarm_df)
-    ax.set(title='RMSE Distribution for GSR vs Non-GSR for x')
-    plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_x_comparison.png')
+    ax.set(title='RMSE Distribution for Different Training Sets in x')
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_x_comparison_scans.png')
     plt.clf()
     ax = sns.swarmplot(x='index', y='rmse_y', data=swarm_df)
-    ax.set(title='RMSE Distribution for GSR vs Non-GSR for y')
-    plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_y_comparison.png')
+    ax.set(title='RMSE Distribution for Different Training Sets in y')
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_y_comparison_scans.png')
 
-create_swarms()
 
 # #############################################################################
 # Correlation matrix
@@ -1153,43 +1145,336 @@ def create_corr_matrix():
     return corr_matrix_x, corr_matrix_y, corr_matrix_tp_x, corr_matrix_tp_y, corr_matrix_dm_x, corr_matrix_dm_y
 
 
-corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix()
+# corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix()
+# pcolor(corr_matrix_y)
+# colorbar()
+# show()
 
-pcolor(corr_matrix_y)
-colorbar()
-show()
+# #############################################################################
+# Paired t-test for correlation values comparing GSR vs non-GSR and training set combinations
+
+def extract_corr_values():
+
+    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+    params = params.convert_objects(convert_numeric=True)
+    params = params[params.scan_count == 3]
+    sub_list = params.index.values.tolist()
+    resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
+
+    x_dict = {'no_gsr_train1': [], 'no_gsr_train3': [], 'no_gsr_train13': [], 'gsr_train1': []}
+    y_dict = {'no_gsr_train1': [], 'no_gsr_train3': [], 'no_gsr_train13': [], 'gsr_train1': []}
+
+    for sub in sub_list:
+
+        try:
+
+            x1 = pd.read_csv(resample_path + sub + '/parameters_no_gsr_train1.csv')['corr_x'][0]
+            x2 = pd.read_csv(resample_path + sub + '/parameters_no_gsr_train3.csv')['corr_x'][0]
+            x3 = pd.read_csv(resample_path + sub + '/parameters_no_gsr_train13.csv')['corr_x'][0]
+            x4 = pd.read_csv(resample_path + sub + '/parameters_gsr_two_scans.csv')['corr_x'][0]
+
+            x_dict['no_gsr_train1'].append(x1)
+            x_dict['no_gsr_train3'].append(x2)
+            x_dict['no_gsr_train13'].append(x3)
+            x_dict['gsr_train1'].append(x4)
+
+            y1 = pd.read_csv(resample_path + sub + '/parameters_no_gsr_train1.csv')['corr_y'][0]
+            y2 = pd.read_csv(resample_path + sub + '/parameters_no_gsr_train3.csv')['corr_y'][0]
+            y3 = pd.read_csv(resample_path + sub + '/parameters_no_gsr_train13.csv')['corr_y'][0]
+            y4 = pd.read_csv(resample_path + sub + '/parameters_gsr_two_scans.csv')['corr_y'][0]
+
+            y_dict['no_gsr_train1'].append(y1)
+            y_dict['no_gsr_train3'].append(y2)
+            y_dict['no_gsr_train13'].append(y3)
+            y_dict['gsr_train1'].append(y4)
+
+        except:
+
+            print(sub + ' not successful')
+
+    return x_dict, y_dict
+
+
+def training_set_optimization():
+
+    x_dict, y_dict = extract_corr_values()
+
+    val_range = np.linspace(np.nanmin(x_dict['no_gsr_train1']), np.nanmax(x_dict['no_gsr_train1']), 1000)
+    m1, b1 = np.polyfit(x_dict['no_gsr_train1'], x_dict['no_gsr_train13'], 1)
+
+    r2_text = 'r2 value: ' + str(r2_score(x_dict['no_gsr_train1'], x_dict['no_gsr_train13']))[:5]
+
+    plt.figure()
+    plt.title('Comparison of Model Performance Based on Training Set in x')
+    plt.xlabel('Scan 1 Correlation Values')
+    plt.ylabel('Scan 1&3 Correlation Values')
+    plt.scatter(x_dict['no_gsr_train1'], x_dict['no_gsr_train13'], label='Correlation values')
+    plt.plot(val_range, m1*val_range + b1, color='r', label=r2_text)
+    plt.plot([-.5, 1], [-.5, 1], '--', color='k', label='Identical Performance')
+    plt.legend()
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/training_optimization_x1.png', dpi=600)
+    plt.show()
+
+    val_range = np.linspace(np.nanmin(y_dict['no_gsr_train1']), np.nanmax(y_dict['no_gsr_train1']), 1000)
+    m2, b2 = np.polyfit(y_dict['no_gsr_train1'], y_dict['no_gsr_train13'], 1)
+
+    r2_text = 'r2 value: ' + str(r2_score(y_dict['no_gsr_train1'], y_dict['no_gsr_train13']))[:5]
+
+    plt.figure()
+    plt.title('Comparison of Model Performance Based on Training Set in y')
+    plt.xlabel('Scan 1 Correlation Values')
+    plt.ylabel('Scan 1&3 Correlation Values')
+    plt.scatter(y_dict['no_gsr_train1'], y_dict['no_gsr_train13'], label='Correlation values')
+    plt.plot(val_range, m2*val_range + b2, color='r', label=r2_text)
+    plt.plot([-.5, 1], [-.5, 1], '--', color='k', label='Identical Performance')
+    plt.legend()
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/training_optimization_y1.png', dpi=600)
+    plt.show()
+
+    val_range = np.linspace(np.nanmin(x_dict['no_gsr_train3']), np.nanmax(x_dict['no_gsr_train3']), 1000)
+    m1, b1 = np.polyfit(x_dict['no_gsr_train3'], x_dict['no_gsr_train13'], 1)
+
+    r2_text = 'r2 value: ' + str(r2_score(x_dict['no_gsr_train3'], x_dict['no_gsr_train13']))[:5]
+
+    plt.figure()
+    plt.title('Comparison of Model Performance Based on Training Set in x')
+    plt.xlabel('Scan 3 Correlation Values')
+    plt.ylabel('Scan 1&3 Correlation Values')
+    plt.scatter(x_dict['no_gsr_train3'], x_dict['no_gsr_train13'], label='Correlation values')
+    plt.plot(val_range, m1*val_range + b1, color='r', label=r2_text)
+    plt.plot([-.5, 1], [-.5, 1], '--', color='k', label='Identical Performance')
+    plt.legend()
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/training_optimization_x3.png', dpi=600)
+    plt.show()
+
+    val_range = np.linspace(np.nanmin(y_dict['no_gsr_train1']), np.nanmax(y_dict['no_gsr_train1']), 1000)
+    m2, b2 = np.polyfit(y_dict['no_gsr_train3'], y_dict['no_gsr_train13'], 1)
+
+    r2_text = 'r2 value: ' + str(r2_score(y_dict['no_gsr_train3'], y_dict['no_gsr_train13']))[:5]
+
+    plt.figure()
+    plt.title('Comparison of Model Performance Based on Training Set in y')
+    plt.xlabel('Scan 3 Correlation Values')
+    plt.ylabel('Scan 1&3 Correlation Values')
+    plt.scatter(y_dict['no_gsr_train3'], y_dict['no_gsr_train13'], label='Correlation values')
+    plt.plot(val_range, m2*val_range + b2, color='r', label=r2_text)
+    plt.plot([-.5, 1], [-.5, 1], '--', color='k', label='Identical Performance')
+    plt.legend()
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/training_optimization_y3.png', dpi=600)
+    plt.show()
+
+
+def gsr_comparison():
+
+    x_dict, y_dict = extract_corr_values()
+
+    val_range = np.linspace(np.nanmin(x_dict['no_gsr_train1']), np.nanmax(x_dict['no_gsr_train1']), 1000)
+    m1, b1 = np.polyfit(x_dict['no_gsr_train1'], x_dict['gsr_train1'], 1)
+
+    r2_text = 'r2 value: ' + str(r2_score(x_dict['no_gsr_train1'], x_dict['gsr_train1']))[:5]
+
+    plt.figure()
+    plt.title('Comparison of Model Performance Based on GSR in x')
+    plt.xlabel('No-GSR Correlation Values')
+    plt.ylabel('GSR Correlation Values')
+    plt.scatter(x_dict['no_gsr_train1'], x_dict['gsr_train1'], label='Correlation values')
+    plt.plot(val_range, m1 * val_range + b1, color='r', label=r2_text)
+    plt.plot([-.5, 1], [-.5, 1], '--', color='k', label='Identical Performance')
+    plt.legend()
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/gsr_comparison_x.png', dpi=600)
+    plt.show()
+
+    val_range = np.linspace(np.nanmin(y_dict['no_gsr_train1']), np.nanmax(y_dict['no_gsr_train1']), 1000)
+    m2, b2 = np.polyfit(y_dict['no_gsr_train1'], y_dict['gsr_train1'], 1)
+
+    r2_text = 'r2 value: ' + str(r2_score(y_dict['no_gsr_train1'], y_dict['gsr_train1']))[:5]
+
+    plt.figure()
+    plt.title('Comparison of Model Performance Based on GSR in y')
+    plt.xlabel('No-GSR Correlation Values')
+    plt.ylabel('GSR Correlation Values')
+    plt.scatter(y_dict['no_gsr_train1'], y_dict['gsr_train1'], label='Correlation values')
+    plt.plot(val_range, m2 * val_range + b2, color='r', label=r2_text)
+    plt.plot([-.5, 1], [-.5, 1], '--', color='k', label='Identical Performance')
+    plt.legend()
+    plt.savefig('/home/json/Desktop/peer/hbm_figures/gsr_comparison_y.png', dpi=600)
+    plt.show()
+
+gsr_comparison()
+
+def threshold_proportion(threshold=.50, type='gsr'):
+
+    x_fract = len([x for x in x_dict[type] if x > threshold]) / len(x_dict[type])
+    y_fract = len([x for x in y_dict[type] if x > threshold]) / len(y_dict[type])
+
+    print(x_fract, y_fract)
+
+# threshold_proportion(threshold=.70, type='no-gsr')
+
+
+# #############################################################################
+# Line of best fit - relationship between head motion and correlation values
+
+def motion_linear_regression(motion='dvars', dimension='corr_x'):
+
+    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+    params = params.convert_objects(convert_numeric=True)
+    params = params[(params.scan_count == 3) | (params.scan_count == 2)]
+    params = params.sort_values(by=[motion])
+    sub_list = params.index.values.tolist()
+    resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
+
+    sub_dict = {'dvars': [], 'mean_fd': [], 'corr_x': [], 'corr_y': []}
+
+    for sub in sub_list:
+
+        try:
+
+            if (np.isnan(pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')['corr_x'][0]) is not False) or (np.isnan(pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')['corr_y'][0]) is not False):
+
+                sub_dict['dvars'].append(params.loc[sub, 'dvars'])
+                sub_dict['mean_fd'].append(params.loc[sub, 'mean_fd'])
+                sub_dict['corr_x'].append(pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')['corr_x'][0])
+                sub_dict['corr_y'].append(pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')['corr_y'][0])
+
+            else:
+
+                continue
+
+        except:
+
+            continue
+
+    for item in [motion]:
+
+        outliers_removed = []
+
+        for x in sub_dict[item]:
+            if abs(x) < np.nanmean(sub_dict[item]) + 3 * np.nanstd(sub_dict[item]):
+                outliers_removed.append(x)
+            else:
+                outliers_removed.append('replaced')
+
+    for item in ['corr_x', 'corr_y']:
+
+        outliers_removed = []
+
+        for x in range(len(sub_dict[motion])):
+
+            if sub_dict[item][x] != 'replaced':
+
+                outliers_removed.append(sub_dict[item][x])
+
+            else:
+                outliers_removed.append('replaced')
+
+        sub_dict[item] = outliers_removed
+
+    for item in [motion, 'corr_x', 'corr_y']:
+        sub_dict[item] = [x for x in sub_dict[item] if x != 'replaced']
+
+    z = np.polyfit(sub_dict[motion], sub_dict['corr_x'], 1)
+    p = np.poly1d(z)
+
+    input_range = np.linspace(np.nanmin(sub_dict[motion]), np.nanmax(sub_dict[motion]), 100)
+
+    from scipy.stats import linregress
+
+    print(linregress(sub_dict[motion], sub_dict[dimension]))
+
+    plt.figure()
+    plt.plot(np.array(sub_dict[motion]), np.array(sub_dict[dimension]), '.')
+    plt.plot(input_range, p(input_range), '--')
+    plt.show()
+
+
+# for mm in ['mean_fd', 'dvars']:
+#     for dim in ['corr_x', 'corr_y']:
+#         print(mm, dim)
+#         motion_linear_regression(motion=mm, dimension=dim)
+#
+#
+#
+#
+# x_dict, y_dict = extract_corr_values()
+#
+# x_gsr = ttest_rel(x_dict['gsr'], x_dict['no-gsr'])
+# x_scan = ttest_rel(x_dict['gsr'], x_dict['two_scan'])
+# y_gsr = ttest_rel(y_dict['gsr'], y_dict['no-gsr'])
+# y_scan = ttest_rel(y_dict['gsr'], y_dict['two_scan'])
+#
+# plt.hist(x_dict['gsr'], bins=np.arange(0, 1, .05))
+# plt.show()
+#
+# from scipy.stats import wilcoxon
+#
+# x_gsr = wilcoxon(x_dict['gsr'], x_dict['no-gsr'])
+# x_scan = wilcoxon(x_dict['gsr'], x_dict['two_scan'])
+# y_gsr = wilcoxon(y_dict['gsr'], y_dict['no-gsr'])
+# y_scan = wilcoxon(y_dict['gsr'], y_dict['two_scan'])
+#
+# import pyvttbl as pt
+#
+# x_values = np.concatenate([np.array(x_dict['gsr']), np.array(x_dict['no-gsr']), np.array(x_dict['two_scan'])]).tolist()
+# y_values = np.concatenate([np.array(y_dict['gsr']), np.array(y_dict['no-gsr']), np.array(y_dict['two_scan'])]).tolist()
+# gsr_status = np.concatenate([np.ones(len(x_dict['gsr'])), np.ones(len(x_dict['gsr'])), np.zeros(len(x_dict['gsr']))]).tolist()
+# training_set = np.concatenate([np.ones(len(x_dict['gsr'])), np.zeros(len(x_dict['gsr'])), np.ones(len(x_dict['gsr']))]).tolist()
+#
+# anova_dict = {'x_corr': x_values, 'y_corr': y_values, 'gsr_status': gsr_status, 'training_set': training_set}
+#
+# df = pd.DataFrame.from_dict(anova_dict)
+#
+# aov = df.anova1way('x_corr', 'gsr_status')
+# print(aov)
 
 # #############################################################################
 # SVM for binary classification
 
-from sklearn import svm
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import GridSearchCV
+def bin_class():
 
-# Create all dm and tp vectors with targets
-# Divide into training and testing sets
+    from sklearn import svm
+    from sklearn.metrics import accuracy_score
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.metrics import confusion_matrix
 
-corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix()
+    # Create all dm and tp vectors with targets
+    # Divide into training and testing sets
 
-dm_targets = ['dm' for x in range(len(dm_x))]
-tp_targets = ['tp' for x in range(len(tp_x))]
+    corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix()
 
-tt_split = .50
-split_val = int(np.round(tt_split * len(tp_x), 0))
+    dm_targets = ['dm' for x in range(len(dm_x))]
+    tp_targets = ['tp' for x in range(len(tp_x))]
 
-train_data_x = np.concatenate([tp_x[:split_val], dm_x[:split_val]])
-test_data_x = np.concatenate([tp_x[split_val:], dm_x[split_val:]])
-train_data_y = np.concatenate([tp_y[:split_val], dm_y[:split_val]])
-test_data_y = np.concatenate([tp_y[split_val:], dm_y[split_val:]])
-train_targets_x = np.concatenate([tp_targets[:split_val], dm_targets[:split_val]])
-test_targets_x = np.concatenate([tp_targets[split_val:], dm_targets[split_val:]])
+    tt_split = .50
+    tt_split_list = np.linspace(.1, .9, num=9)
+    split_val = int(np.round(tt_split * len(tp_x), 0))
+    split_val_list = [int(np.round(tt_split * len(tp_x), 0)) for tt_split in tt_split_list]
 
-clf = svm.SVC(C=100, tol=.0001, kernel='linear', verbose=1)
+    temp_analysis_x = []
+    temp_analysis_y = []
 
-clf.fit(train_data_x, train_targets_x)
-predictions = clf.predict(test_data_x)
+    for split_val in [split_val]:
 
-accuracy_score(predictions, test_targets_x)
+        train_data_x = np.concatenate([tp_x[:split_val], dm_x[:split_val]])
+        test_data_x = np.concatenate([tp_x[split_val:], dm_x[split_val:]])
+        train_data_y = np.concatenate([tp_y[:split_val], dm_y[:split_val]])
+        test_data_y = np.concatenate([tp_y[split_val:], dm_y[split_val:]])
+        train_targets = np.concatenate([tp_targets[:split_val], dm_targets[:split_val]])
+        test_targets = np.concatenate([tp_targets[split_val:], dm_targets[split_val:]])
+
+        clfx = svm.SVC(C=100, tol=.0001, kernel='linear', verbose=0)
+        clfy = svm.SVC(C=100, tol=.0001, kernel='linear', verbose=0)
+
+        clfx.fit(train_data_x, train_targets)
+        predictions_x = clfx.predict(test_data_x)
+        clfy.fit(train_data_y, train_targets)
+        predictions_y = clfy.predict(test_data_y)
+
+        temp_analysis_x.append(accuracy_score(predictions_x, test_targets))
+        temp_analysis_y.append(accuracy_score(predictions_y, test_targets))
+
+        print(confusion_matrix(predictions_x, test_targets))
+        print(confusion_matrix(predictions_y, test_targets))
 
 
 # #############################################################################
@@ -1560,4 +1845,18 @@ def general_classifier(reg_list):
 # plt.scatter(dvars_list, y_error_list, s=5)
 # plt.plot(dvars_list, m4*dvars_list + b4, '-', color='r')
 # plt.show()
+
+# fixations = pd.read_csv('stim_vals.csv')
+# x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 1)
+# y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 1)
+#
+# plt.figure()
+# plt.scatter(x_targets, y_targets)
+# plt.title('Calibration Screen')
+# plt.savefig('/home/json/Desktop/peer/hbm_figures/calibration_screen.png', dpi=600)
+# plt.show()
+
+
+
+
 
