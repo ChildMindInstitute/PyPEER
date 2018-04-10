@@ -2126,18 +2126,44 @@ def et_samples_to_pandas(sub):
 
         headers = content[0]
 
-        df = pd.DataFrame(content[1:], columns=headers)
+        df = pd.DataFrame(content[1:], columns=headers, dtype='float')
 
-        msg_time = list(df[df.Type == 'MSG'].Time)
+    msg_time = list(df[df.Type == 'MSG'].Time)
 
-        start_time = msg_time[2]
-        end_time = msg_time[3]
+    start_time = float(msg_time[2])
+    end_time = float(msg_time[3])
 
-        df_msg_removed = df[(df.Time > start_time) & (df.Time < end_time)]
+    df_msg_removed = df[(df.Time > start_time) & (df.Time < end_time)][['Time',
+                                                                        'L POR X [px]',
+                                                                        'R POR X [px]',
+                                                                        'L POR Y [px]',
+                                                                        'R POR Y [px]']]
 
     return df_msg_removed, start_time, end_time
 
+
+def average_fixations_per_TR(df, start_time, end_time):
+
+    mean_fixations = []
+
+    movie_volume_count = 250
+    movie_TR = 800  # in milliseconds
+
+    for num in range(movie_volume_count):
+
+        bin0 = start_time + num * 1000 * movie_TR
+        bin1 = start_time + (num + 1) * 1000 * movie_TR
+        df_temp = df[(df.Time >= bin0) & (df.Time <= bin1)]
+
+        x_pos = np.mean(df_output['R POR X [px]'])
+        y_pos = np.mean(df_output['R POR Y [px]'])
+
+        mean_fixations.append([x_pos, y_pos])
+
+    return mean_fixations
+
 df_output, start_time, end_time = et_samples_to_pandas('sub-5026599')
+mean_fixations = average_fixations_per_TR(df_output, start_time, end_time)
 
 
 ##### Interpretation of time column
