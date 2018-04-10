@@ -10,12 +10,13 @@ from scipy.stats import ttest_rel
 from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
 from aux_process import *
-from joblib import Parallel, delayed
 import pickle
 import seaborn as sns
 import matplotlib.ticker as ticker
 from pylab import pcolor, show, colorbar
 from sklearn.metrics import mean_squared_error, r2_score
+
+from joblib import Parallel, delayed
 
 monitor_width = 1680
 monitor_height = 1050
@@ -1044,6 +1045,7 @@ def create_swarms():
     params = params.convert_objects(convert_numeric=True)
     params = params[params.scan_count == 3]
     sub_list = params.index.values.tolist()
+    sub_list = [x for x in sub_list if x not in partial_brain_list]
 
     for sub in sub_list:
 
@@ -1093,6 +1095,12 @@ def create_swarms():
     ax.set(title='RMSE Distribution for Different Training Sets in y')
     plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_y_comparison_scans.png')
 
+create_swarms()
+
+partial_brain_list = ['sub-5046805','sub-5069360','sub-5071657','sub-5115820','sub-5118608','sub-5140067','sub-5157882',
+'sub-5193449','sub-5231695','sub-5239398','sub-5311504','sub-5364155','sub-5387071','sub-5491074','sub-5502791',
+'sub-5518313','sub-5520169','sub-5684433','sub-5739609','sub-5757689','sub-5789629','sub-5807131','sub-5915264',
+'sub-5944469','sub-5092466','sub-5361512','sub-5401707','sub-5618945']
 
 # #############################################################################
 # Correlation matrix
@@ -1144,14 +1152,74 @@ def create_corr_matrix():
 
     return corr_matrix_x, corr_matrix_y, corr_matrix_tp_x, corr_matrix_tp_y, corr_matrix_dm_x, corr_matrix_dm_y
 
+corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix()
+pcolor(corr_matrix_x)
+colorbar()
+show()
 
-# corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix()
-# pcolor(corr_matrix_y)
-# colorbar()
-# show()
+
+def separate_grouping(in_mat):
+
+    fv = int(len(in_mat[0]))
+    sv = fv / 2
+
+    wi_ss = []
+    wo_ss = []
+
+    for numx in range(fv):
+        for numy in range(fv):
+
+            if (numx > sv) and (numy > sv) and (numx != numy):
+
+                wi_ss.append(in_mat[numx][numy])
+
+            elif (numx < sv) and (numy < sv) and (numx != numy):
+
+                wi_ss.append(in_mat[numx][numy])
+
+            else:
+
+                if numx != numy:
+
+                    wo_ss.append(in_mat[numx][numy])
+
+    return wi_ss, wo_ss
+
+
+wi_ss_x, wo_ss_x = separate_grouping(corr_matrix_x)
+wi_ss_y, wo_ss_y = separate_grouping(corr_matrix_y)
+
+wi_label = ['Within' for x in range(len(wi_ss_x))]
+wo_label = ['Without' for x in range(len(wo_ss_x))]
+
+df_dict = {'x': np.concatenate([wi_ss_x, wo_ss_x]), 'y': np.concatenate([wi_ss_y, wo_ss_y]),
+           'within_without_group': np.concatenate([wi_label, wo_label]),
+           'x_ax': ['Naturalistic Viewing' for x in range(len(wi_ss_x) + len(wo_ss_x))]}
+
+df = pd.DataFrame.from_dict(df_dict)
+
+sns.set()
+plt.title('Within and Between Movie Correlation Discriminability in y')
+sns.violinplot(x='x_ax', y='y', hue='within_without_group', data=df, split=True,
+               inner='quart', palette={'Within': 'b', 'Without': 'y'})
+plt.savefig('/home/json/Desktop/peer/hbm_figures/within_between_y.png', dpi=600)
+
+def grouping_ss(within, without):
+
+    wi_mean = np.mean(within)
+    wo_mean = np.mean(without)
+    wi_stdv = np.std(within)
+    wo_stdv = np.std(without)
+
+    return wi_mean, wo_mean, wi_stdv, wo_stdv
+
+wi_mean_x, wo_mean_x, wi_stdv_x, wo_stdv_x = grouping_ss(wi_ss_x, wo_ss_x)
+wi_mean_y, wo_mean_y, wi_stdv_y, wo_stdv_y = grouping_ss(wi_ss_y, wo_ss_y)
+
 
 # #############################################################################
 # Paired t-test for correlation values comparing GSR vs non-GSR and training set combinations
+
 
 def extract_corr_values():
 
@@ -1159,6 +1227,7 @@ def extract_corr_values():
     params = params.convert_objects(convert_numeric=True)
     params = params[params.scan_count == 3]
     sub_list = params.index.values.tolist()
+    sub_list = [x for x in sub_list if x not in partial_brain_list]
     resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 
     x_dict = {'no_gsr_train1': [], 'no_gsr_train3': [], 'no_gsr_train13': [], 'gsr_train1': []}
@@ -1300,7 +1369,6 @@ def gsr_comparison():
     plt.savefig('/home/json/Desktop/peer/hbm_figures/gsr_comparison_y.png', dpi=600)
     plt.show()
 
-gsr_comparison()
 
 def threshold_proportion(threshold=.50, type='gsr'):
 
@@ -1856,7 +1924,210 @@ def general_classifier(reg_list):
 # plt.savefig('/home/json/Desktop/peer/hbm_figures/calibration_screen.png', dpi=600)
 # plt.show()
 
+from scipy.stats import norm
+import matplotlib.mlab as mlab
+import matplotlib.pyplot as plt
+
+params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+params = params.convert_objects(convert_numeric=True)
+sub_list = params.index.values.tolist()
+
+data_path = '/data2/Projects/Lei/Peers/Prediction_data/'
+
+dm_dist = []
+tp_dist = []
+
+prop_dm = []
+prop_tp = []
+
+for sub in sub_list:
+
+    try:
+
+        with open(data_path + sub + '/DM_eyemove.txt') as f:
+            content = f.readlines()
+        dm = [float(x.strip('\n')) for x in content if float(x.strip('\n')) < 2000]
+        with open(data_path + sub + '/TP_eyemove.txt') as f:
+            content = f.readlines()
+        tp = [float(x.strip('\n')) for x in content if float(x.strip('\n')) < 2000]
+
+        n_bins = 10
+        threshold = 300
+
+        prop_dm.append(len([x for x in dm if x < threshold]) / len(dm))
+        prop_tp.append(len([x for x in tp if x < threshold]) / len(tp))
+
+        mu, sigma = norm.fit(dm)
+        n, bins_dm = np.histogram(dm, n_bins, normed=True)
+        y_dm = mlab.normpdf(np.linspace(0, 300, 100), mu, sigma)
+
+        mu, sigma = norm.fit(tp)
+        n, bins_tp = np.histogram(tp, n_bins, normed=True)
+        y_tp = mlab.normpdf(np.linspace(0, 300, 100), mu, sigma)
+
+        if y_dm[0] < .01:
+
+            dm_dist.append([np.linspace(0, 300, 100), y_dm])
+
+        if y_tp[0] < .01:
+
+            tp_dist.append([np.linspace(0, 300, 100), y_tp])
+
+    except:
+
+        continue
+
+print(np.mean(prop_dm), np.mean(prop_tp))
+
+figure_title = 'DM Eye Movement Magnitude Distributions'
+plt.figure()
+plt.title(figure_title)
+
+for bins_, y_ in dm_dist:
+    plt.plot(np.linspace(0, 300, 100), y_, linewidth=1, alpha=.5)
+plt.xlim([0, 300])
+# plt.savefig('/home/json/Desktop/' + figure_title + '.png', dpi=600)
+plt.xlabel('Distance between 2-D fixation predictions')
+plt.show()
+
+above = []
+mid = []
+stdv = []
+below = []
+
+mean_ci_dm = [y for x,y in dm_dist]
+mean_ci_tp = [y for x,y in tp_dist]
+
+dm_mean = np.mean(mean_ci_dm, axis=0)
+dm_below = dm_mean - 1.96 * np.std(mean_ci_dm, axis=0)
+dm_above = dm_mean + 1.96 * np.std(mean_ci_dm, axis=0)
+
+tp_mean = np.mean(mean_ci_dm, axis=0)
+tp_below = tp_mean - 1.96 * np.std(mean_ci_tp, axis=0)
+tp_above = tp_mean + 1.96 * np.std(mean_ci_tp, axis=0)
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.colors import colorConverter as cc
+import numpy as np
 
 
+def plot_mean_and_CI(mean, lb, ub, color_mean=None, color_shading=None):
+    # plot the shaded range of the confidence intervals
+
+    figure_title = 'TP Eye Movement Magnitude Distributions'
+
+    plt.fill_between(np.linspace(0, 300, 100), ub, lb,
+                     color=color_shading, alpha=.5)
+    # plot the mean on top
+    # plt.plot(mean, color_mean)
+    plt.plot(np.linspace(0, 300, 100), mean)
+    plt.title(figure_title)
+    plt.xlabel('Distance between 2-D fixation predictions')
+    plt.savefig('/home/json/Desktop/peer/Figures/' + figure_title + '.png', dpi=600)
 
 
+plot_mean_and_CI(tp_mean, tp_below, tp_above, color_mean='b', color_shading='b')
+
+
+###### Squashing function
+
+def squash(in_val, c1, c2):
+
+    output = c1 + (c2 - c1) * np.tanh((in_val - c1)/(c2 - c1))
+
+    return output
+
+params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+params = params.convert_objects(convert_numeric=True)
+sub_list = params.index.values.tolist()
+
+for sub in sub_list:
+
+    try:
+
+        # with open(data_path + sub + '/DM_eyemove.txt') as f:
+        #     content = f.readlines()
+        # dm = [float(x.strip('\n')) for x in content if float(x.strip('\n')) ]
+        with open(data_path + sub + '/TP_eyemove.txt') as f:
+            content = f.readlines()
+        tp = [float(x.strip('\n')) for x in content if float(x.strip('\n'))]
+
+        # dm_mean = np.mean(dm)
+        tp_mean = np.mean(tp)
+        # dm_std = np.std(dm)
+        tp_std = np.std(tp)
+
+        # dm_z = [(x-dm_mean)/dm_std for x in dm]
+        tp_z = [(x-tp_mean)/tp_std for x in tp]
+
+        t_upper = 4.0
+        t_lower = 2.5
+
+        dm_squashed = []
+        tp_squashed = []
+        dm_spikes = []
+        tp_spikes = []
+
+        # for x in dm_z:
+        #     if abs(x) < t_lower:
+        #         dm_squashed.append(x)
+        #         dm_spikes.append(0)
+        #     else:
+        #         dm_squashed.append(squash(x, t_lower, t_upper))
+        #         dm_spikes.append(1)
+
+        for x in tp_z:
+            if abs(x) < t_lower:
+                tp_squashed.append(x)
+                tp_spikes.append(0)
+            else:
+                tp_squashed.append(squash(x, t_lower, t_upper))
+                tp_spikes.append(1)
+
+        # dm_output = [dm_mean + x*dm_std for x in dm_squashed]
+        tp_output = [tp_mean + x*tp_std for x in tp_squashed]
+
+        # with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/DM_eyemove_squashed.txt', 'w') as dm_file:
+        #     for item in dm_output:
+        #         dm_file.write("%s\n" % item)
+
+        with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/TP_eyemove_squashed.txt', 'w') as tp_file:
+            for item in tp_output:
+                tp_file.write("%s\n" % item)
+
+        # with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/DM_eyemove_spikes.txt', 'w') as dm_file:
+        #     for item in dm_spikes:
+        #         dm_file.write("%s\n" % item)
+
+        with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/TP_eyemove_spikes.txt', 'w') as tp_file:
+            for item in tp_spikes:
+                tp_file.write("%s\n" % item)
+
+    except:
+
+        continue
+
+
+def eye_tracking_analysis():
+
+    print('Eye tracking')
+
+eye_tracking_path = '/data2/HBN/EEG/data_RandID/'
+
+with open(eye_tracking_path + '5343770' + '/Eyetracking/txt/' + '5343770' + '_Video1_Samples.txt') as f:
+    content = f.readlines()[39:45]
+
+content = [x.strip('\t') for x in content]
+
+import csv
+with open(eye_tracking_path + '5343770' + '/Eyetracking/txt/' + '5343770' + '_Video1_Samples.txt') as f:
+    reader = csv.reader(f, delimiter='\t')
+    content = list(reader)
+    content = content[38:]
+
+from datetime import datetime
+datetime.fromtimestamp(1813247552/1000).strftime('%c')
+
+duration = (7058622603 - 6855562680) / (1000000 * 60)
+duration2 = (3543753792 - 3340692088) / (1000000 * 60)
