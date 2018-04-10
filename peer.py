@@ -2114,6 +2114,7 @@ for sub in sub_list:
 #################################### Eye Tracking Analysis
 
 eye_tracking_path = '/data2/HBN/EEG/data_RandID/'
+hbm_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 
 
 def et_samples_to_pandas(sub):
@@ -2134,12 +2135,21 @@ def et_samples_to_pandas(sub):
     end_time = float(msg_time[3])
 
     df_msg_removed = df[(df.Time > start_time) & (df.Time < end_time)][['Time',
-                                                                        'L POR X [px]',
                                                                         'R POR X [px]',
-                                                                        'L POR Y [px]',
                                                                         'R POR Y [px]']]
 
+    df_msg_removed.update(df_msg_removed['R POR X [px]'].apply(scale_x_pos))
+    df_msg_removed.update(df_msg_removed['R POR Y [px]'].apply(scale_y_pos))
+
     return df_msg_removed, start_time, end_time
+
+def scale_x_pos(fixation):
+
+    return (fixation - 400) * (1680 / 800)
+
+def scale_y_pos(fixation):
+
+    return (fixation - 300) * (1050 / 600)
 
 
 def average_fixations_per_TR(df, start_time, end_time):
@@ -2155,18 +2165,21 @@ def average_fixations_per_TR(df, start_time, end_time):
         bin1 = start_time + (num + 1) * 1000 * movie_TR
         df_temp = df[(df.Time >= bin0) & (df.Time <= bin1)]
 
-        x_pos = np.mean(df_output['R POR X [px]'])
-        y_pos = np.mean(df_output['R POR Y [px]'])
+        x_pos = np.mean(df_temp['R POR X [px]'])
+        y_pos = np.mean(df_temp['R POR Y [px]'])
 
         mean_fixations.append([x_pos, y_pos])
 
     return mean_fixations
 
+
+def save_mean_fixations(fixation_list):
+
+    df = pd.DataFrame(fixation_list, columns=(['x_pred', 'y_pred']))
+    # df.to_csv(hbm_path + sub + '/et_device_pred.csv')
+    df.to_csv('/home/json/Desktop/test.csv')
+
 df_output, start_time, end_time = et_samples_to_pandas('sub-5026599')
 mean_fixations = average_fixations_per_TR(df_output, start_time, end_time)
+save_mean_fixations(mean_fixations)
 
-
-##### Interpretation of time column
-
-duration = (7058622603 - 6855562680) / (1000000 * 60)
-duration2 = (3543753792 - 3340692088) / (1000000 * 60)
