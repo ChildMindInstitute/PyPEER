@@ -2109,25 +2109,38 @@ for sub in sub_list:
         continue
 
 
-def eye_tracking_analysis():
 
-    print('Eye tracking')
+
+#################################### Eye Tracking Analysis
 
 eye_tracking_path = '/data2/HBN/EEG/data_RandID/'
 
-with open(eye_tracking_path + '5343770' + '/Eyetracking/txt/' + '5343770' + '_Video1_Samples.txt') as f:
-    content = f.readlines()[39:45]
 
-content = [x.strip('\t') for x in content]
+def et_samples_to_pandas(sub):
 
-import csv
-with open(eye_tracking_path + '5343770' + '/Eyetracking/txt/' + '5343770' + '_Video1_Samples.txt') as f:
-    reader = csv.reader(f, delimiter='\t')
-    content = list(reader)
-    content = content[38:]
+    sub = sub.strip('sub-')
 
-from datetime import datetime
-datetime.fromtimestamp(1813247552/1000).strftime('%c')
+    with open(eye_tracking_path + sub + '/Eyetracking/txt/' + sub + '_Video4_Samples.txt') as f:
+        reader = csv.reader(f, delimiter='\t')
+        content = list(reader)[38:]
+
+        headers = content[0]
+
+        df = pd.DataFrame(content[1:], columns=headers)
+
+        msg_time = list(df[df.Type == 'MSG'].Time)
+
+        start_time = msg_time[2]
+        end_time = msg_time[3]
+
+        df_msg_removed = df[(df.Time > start_time) & (df.Time < end_time)]
+
+    return df_msg_removed, start_time, end_time
+
+df_output, start_time, end_time = et_samples_to_pandas('sub-5026599')
+
+
+##### Interpretation of time column
 
 duration = (7058622603 - 6855562680) / (1000000 * 60)
 duration2 = (3543753792 - 3340692088) / (1000000 * 60)
