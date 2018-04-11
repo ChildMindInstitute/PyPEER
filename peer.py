@@ -21,453 +21,27 @@ from joblib import Parallel, delayed
 monitor_width = 1680
 monitor_height = 1050
 
-# #############################################################################
-# Update subject parameters sheet with new participants
-
-# data_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
-# qap_path_RU = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/QAP/qap_functional_temporal.csv'
-# qap_path_CBIC = '/data2/HBNcore/CMI_HBN_Data/MRI/CBIC/QAP/qap_functional_temporal.csv'
-# output_path = '/home/json/Desktop/peer/Figures'
-
-# #############################################################################
-# Import data
-
-
-def standard_peer(subject_list, gsr=True, update=False):
-
-    for name in subject_list:
-
-        try:
-
-            print('Beginning analysis on participant ' + name)
-
-            training1 = nib.load(data_path + name + '/PEER1_resampled.nii.gz')
-            training1_data = training1.get_data()
-            testing = nib.load(data_path + name + '/PEER2_resampled.nii.gz')
-            testing_data = testing.get_data()
-
-            try:
-
-                training2 = nib.load(data_path + name + '/PEER3_resampled.nii.gz')
-                training2_data = training2.get_data()
-                scan_count = 3
-
-            except:
-
-                scan_count = 2
-
-            # #############################################################################
-            # Global Signal Regression
-
-            print('starting gsr')
-
-            if gsr:
-
-                print('entered loop')
-
-                if scan_count == 2:
-
-                    print('count = 2')
-
-                    training1_data = gs_regress(training1_data)
-                    testing_data = gs_regress(testing_data)
-
-                elif scan_count == 3:
-
-                    print('count = 3')
-
-                    training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
-                    training2_data = gs_regress(training2_data, xb, xe, yb, ye, zb, ze)
-                    testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
-
-            # #############################################################################
-            # Vectorize data into single np array
-
-            listed1 = []
-            listed2 = []
-            listed_testing = []
-
-            print('beginning vectors')
-
-            for tr in range(int(training1_data.shape[3])):
-
-                tr_data1 = training1_data[xb:xe, yb:ye, zb:ze, tr]
-                vectorized1 = np.array(tr_data1.ravel())
-                listed1.append(vectorized1)
-
-                if scan_count == 3:
-
-                    tr_data2 = training2_data[xb:xe, yb:ye, zb:ze, tr]
-                    vectorized2 = np.array(tr_data2.ravel())
-                    listed2.append(vectorized2)
-
-                te_data = testing_data[xb:xe, yb:ye, zb:ze, tr]
-                vectorized_testing = np.array(te_data.ravel())
-                listed_testing.append(vectorized_testing)
-
-            train_vectors1 = np.asarray(listed1)
-            test_vectors = np.asarray(listed_testing)
-
-            if scan_count == 3:
-                train_vectors2 = np.asarray(listed2)
-
-            elif scan_count == 2:
-                train_vectors2 = []
-
-            # #############################################################################
-            # Averaging training signal
-
-            print('average vectors')
-
-            train_vectors = data_processing(scan_count, train_vectors1, train_vectors2)
-
-            # #############################################################################
-            # Import coordinates for fixations
-
-            print('importing fixations')
-
-            fixations = pd.read_csv('stim_vals.csv')
-            x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1)*monitor_width/2, scan_count-1)
-            y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2, scan_count-1)
-
-            # #############################################################################
-            # Create SVR Model
-
-            predicted_x, predicted_y = create_model(train_vectors, test_vectors, x_targets, y_targets)
-
-            # #############################################################################
-            # Plot SVR predictions against targets
-
-            # scatter_plot(name, x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False)
-            axis_plot(fixations, predicted_x, predicted_y, subj)
-
-            print('Completed participant ' + name)
-
-            # ###############################################################################
-            # Get error measurements
-
-            x_res = []
-            y_res = []
-
-            for num in range(27):
-
-                nums = num * 5
-
-                for values in range(5):
-
-                    error_x = (abs(x_targets[num] - predicted_x[nums + values]))**2
-                    error_y = (abs(y_targets[num] - predicted_y[nums + values]))**2
-                    x_res.append(error_x)
-                    y_res.append(error_y)
-
-            x_error = np.sqrt(np.sum(np.array(x_res))/135)
-            y_error = np.sqrt(np.sum(np.array(y_res))/135)
-
-            params.loc[name, 'x_error_gsr'] = x_error
-            params.loc[name, 'y_error_gsr'] = y_error
-            params.loc[name, 'scan_count'] = scan_count
-
-            if update:
-                params.to_csv('subj_params.csv')
-
-            if scan_count == 3:
-
-                try:
-
-                    fd1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['RMSD (Mean)'])
-                    fd2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['RMSD (Mean)'])
-                    fd3 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_3']['RMSD (Mean)'])
-                    dv1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['Std. DVARS (Mean)'])
-                    dv2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['Std. DVARS (Mean)'])
-                    dv3 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_3']['Std. DVARS (Mean)'])
-
-                    fd_score = np.average([fd1, fd2, fd3])
-                    dvars_score = np.average([dv1, dv2, dv3])
-                    params.loc[name, 'mean_fd'] = fd_score
-                    params.loc[name, 'dvars'] = dvars_score
-
-                except:
-
-                    print('Participant not found in QAP')
-
-            elif scan_count == 2:
-
-                try:
-
-                    fd1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['RMSD (Mean)'])
-                    fd2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['RMSD (Mean)'])
-                    dv1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['Std. DVARS (Mean)'])
-                    dv2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['Std. DVARS (Mean)'])
-
-                    fd_score = np.average([[fd1, fd2]])
-                    dvars_score = np.average([dv1, dv2])
-                    params.loc[name, 'mean_fd'] = fd_score
-                    params.loc[name, 'dvars'] = dvars_score
-
-                except:
-
-                    print('Participant not found in QAP')
-
-            if update:
-
-                params.to_csv('subj_params.csv')
-
-        except:
-
-            print('Error processing participant')
-
-
-def icc_peer(subject_list, gsr=False, update=False, scan=1):
-
-    for name in subject_list:
-
-        xb = int(params.loc[name, 'x_start']); xe = int(params.loc[name, 'x_end'])
-        yb = int(params.loc[name, 'y_start']); ye = int(params.loc[name, 'y_end'])
-        zb = int(params.loc[name, 'z_start']); ze = int(params.loc[name, 'z_end'])
-
-        try:
-
-            print('Beginning analysis on participant ' + name)
-
-            training1 = nib.load(data_path + name + '/PEER' + str(scan) + '_resampled.nii.gz')
-            training1_data = training1.get_data()
-            testing = nib.load(data_path + name + '/PEER2_resampled.nii.gz')
-            testing_data = testing.get_data()
-            scan_count = 2
-
-            print('starting gsr')
-
-            if gsr:
-
-                training1_data = gs_regress(training1_data, xb, xe, yb, ye, zb, ze)
-                testing_data = gs_regress(testing_data, xb, xe, yb, ye, zb, ze)
-
-            listed1 = []
-            listed_testing = []
-
-            print('beginning vectors')
-
-            for tr in range(int(training1_data.shape[3])):
-
-                tr_data1 = training1_data[xb:xe, yb:ye, zb:ze, tr]
-                vectorized1 = np.array(tr_data1.ravel())
-                listed1.append(vectorized1)
-                te_data = testing_data[xb:xe, yb:ye, zb:ze, tr]
-                vectorized_testing = np.array(te_data.ravel())
-                listed_testing.append(vectorized_testing)
-
-            train_vectors1 = np.asarray(listed1)
-            train_vectors2 = []
-            test_vectors = np.asarray(listed_testing)
-
-            print('average vectors')
-
-            train_vectors = data_processing(scan_count, train_vectors1, train_vectors2)
-
-            # #############################################################################
-            # Import coordinates for fixations
-
-            print('importing fixations')
-
-            fixations = pd.read_csv('stim_vals.csv')
-            x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1)*monitor_width/2, scan_count-1)
-            y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1)*monitor_height/2, scan_count-1)
-
-            # #############################################################################
-            # Create SVR Model
-
-            predicted_x, predicted_y = create_model(train_vectors, test_vectors, x_targets, y_targets)
-
-            # #############################################################################
-            # Plot SVR predictions against targets
-
-            # scatter_plot(name, x_targets, y_targets, predicted_x, predicted_y, plot=True, save=False)
-            axis_plot(fixations, predicted_x, predicted_y)
-
-            print('Completed participant ' + name)
-
-            # ###############################################################################
-            # Get error measurements
-
-            x_res = []
-            y_res = []
-
-            for num in range(27):
-
-                nums = num * 5
-
-                for values in range(5):
-
-                    error_x = (abs(x_targets[num] - predicted_x[nums + values]))**2
-                    error_y = (abs(y_targets[num] - predicted_y[nums + values]))**2
-                    x_res.append(error_x)
-                    y_res.append(error_y)
-
-            x_error = np.sqrt(np.sum(np.array(x_res))/135)
-            y_error = np.sqrt(np.sum(np.array(y_res))/135)
-
-            print([x_error, y_error])
-
-            params.loc[name, 'x_error_' + str(scan)] = x_error
-            params.loc[name, 'y_error_' + str(scan)] = y_error
-
-            try:
-
-                fd1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['RMSD (Mean)'])
-                fd2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['RMSD (Mean)'])
-                dv1 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_1']['Std. DVARS (Mean)'])
-                dv2 = float(qap[qap['Participant'] == name][qap['Series'] == 'func_peer_run_2']['Std. DVARS (Mean)'])
-
-                fd_score = np.average([[fd1, fd2]])
-                dvars_score = np.average([dv1, dv2])
-                params.loc[name, 'mean_fd'] = fd_score
-                params.loc[name, 'dvars'] = dvars_score
-
-            except:
-
-                print('Participant not found in QAP')
-
-            if update:
-
-                params.to_csv('subj_params.csv')
-
-        except:
-
-            print('Error processing participant')
-
-# #############################################################################
-# Test registered data
-
 # eye_mask = nib.load('/usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_eye_mask.nii.gz')
 eye_mask = nib.load('/data2/Projects/Jake/eye_masks/2mm_eye_corrected.nii.gz')
 eye_mask = eye_mask.get_data()
 resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 
-def regi_peer(reg_list):
+def load_data(min_scan=2):
 
-    for sub in reg_list:
+    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+    params = params.convert_objects(convert_numeric=True)
 
-        params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+    if min_scan == 2:
 
-        print('starting participant ' + str(sub))
+        params = params[(params.scan_count == 2) | (params.scan_count == 3)]
 
-        scan_count = int(params.loc[sub, 'scan_count'])
+    elif min_scan == 3:
 
-        try:
+        params = params[params.scan_count == 3]
 
-            viewtype = 'calibration'
+    sub_list = params.index.values.tolist()
 
-            if viewtype == 'calibration':
-                second_file = '/peer2_eyes_sub.nii.gz'
-            elif viewtype == 'tp':
-                second_file = '/movie_TP_eyes_sub.nii.gz'
-            elif viewtype == 'dm':
-                second_file = '/movie_D_eyes_sub.niigz'
-
-            scan1 = nib.load(resample_path + sub + '/peer1_eyes_sub.nii.gz')
-            scan1 = scan1.get_data()
-            print('Scan 1 loaded')
-            scan2 = nib.load(resample_path + sub + second_file)
-            scan2 = scan2.get_data()
-            print('Scan 2 loaded')
-            scan3 = nib.load(resample_path + sub + '/peer3_eyes_sub.nii.gz')
-            scan3 = scan3.get_data()
-            print('Scan 3 loaded')
-
-            print('Applying eye-mask')
-
-            for item in [scan1, scan2, scan3]:
-
-                for vol in range(item.shape[3]):
-
-                    output = np.multiply(eye_mask, item[:, :, :, vol])
-
-                    item[:, :, :, vol] = output
-
-            print('Applying mean-centering with variance-normalization and GSR')
-
-            for item in [scan1, scan2, scan3]:
-
-                item = mean_center_var_norm(item)
-                item = gs_regress(item, eye_mask)
-
-            listed1 = []
-            listed2 = []
-            listed_testing = []
-
-            print('beginning vectors')
-
-            for tr in range(int(scan1.shape[3])):
-
-                tr_data1 = scan1[:, :, :, tr]
-                vectorized1 = np.array(tr_data1.ravel())
-                listed1.append(vectorized1)
-
-                tr_data2 = scan3[:, :, :, tr]
-                vectorized2 = np.array(tr_data2.ravel())
-                listed2.append(vectorized2)
-
-            for tr in range(int(scan2.shape[3])):
-
-                te_data = scan2[:, :, :, tr]
-                vectorized_testing = np.array(te_data.ravel())
-                listed_testing.append(vectorized_testing)
-
-            train_vectors1 = np.asarray(listed1)
-            test_vectors = np.asarray(listed_testing)
-            train_vectors2 = np.asarray(listed2)
-
-            # #############################################################################
-            # Averaging training signal
-
-            print('average vectors')
-
-            train_vectors = data_processing(3, train_vectors1, train_vectors2)
-
-            # #############################################################################
-            # Import coordinates for fixations
-
-            print('importing fixations')
-
-            fixations = pd.read_csv('stim_vals.csv')
-            x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 3 - 1)
-            y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 3 - 1)
-
-            # #############################################################################
-            # Create SVR Model
-
-            x_model, y_model = create_model(train_vectors, x_targets, y_targets)
-
-            predicted_x, predicted_y = predict_fixations(x_model, y_model, test_vectors)
-            predicted_x = np.array([np.round(float(x), 3) for x in predicted_x])
-            predicted_y = np.array([np.round(float(x), 3) for x in predicted_y])
-
-            # x_targets, y_targets = axis_plot(fixations, predicted_x, predicted_y, sub, train_sets=1)
-            # movie_plot(predicted_x, predicted_y, sub, train_sets=1)
-
-            x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2, 1)
-            y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2, 1)
-
-            x_corr = compute_icc(predicted_x, x_targets)
-            y_corr = compute_icc(predicted_y, y_targets)
-
-            x_error_sk = np.sqrt(mean_squared_error(predicted_x, x_targets))
-            y_error_sk = np.sqrt(mean_squared_error(predicted_y, y_targets))
-
-            params.loc[sub, 'rmse_x_gsr'] = x_error_sk
-            params.loc[sub, 'rmse_y_gsr'] = y_error_sk
-            params.loc[sub, 'corr_x_gsr'] = x_corr
-            params.loc[sub, 'corr_y_gsr'] = y_corr
-            params.loc[sub, 'pred_x_gsr'] = predicted_x
-            params.loc[sub, 'pred_y_gsr'] = predicted_y
-            params.loc[sub, 'feat_x_gsr'] = [x for x in x_model.coef_[0]]
-            params.loc[sub, 'feat_y_gsr'] = [x for x in y_model.coef_[0]]
-            params.to_csv('model_outputs.csv')
-            print('participant ' + str(sub) + ' complete')
-
-        except:
-            continue
-
+    return sub_list
 
 def three_valid(sub, gsr_, second_file, viewtype):
 
@@ -884,14 +458,12 @@ def peer_hbm(sub, viewtype='calibration', gsr_='on'):
 
         print('Error processing subject ' + str(sub))
 
-# params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
-# params = params.convert_objects(convert_numeric=True)
-# params = params[params.scan_count == 3]
-# sub_list = params.index.values.tolist()
+sub_list = load_data(min_scan=3)
 
 # Parallel(n_jobs=25)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_='off')for sub in sub_list)
 # Parallel(n_jobs=15)(delayed(peer_hbm)(sub, viewtype='tp', gsr_='off')for sub in sub_list)
 # Parallel(n_jobs=15)(delayed(peer_hbm)(sub, viewtype='dm', gsr_='off')for sub in sub_list)
+
 
 def pred_aggregate(gsr_status='off', viewtype='calibration', motion_type='mean_fd'):
 
@@ -1017,6 +589,7 @@ def pred_aggregate(gsr_status='off', viewtype='calibration', motion_type='mean_f
 
 # x_hm, y_hm = pred_aggregate(gsr_status='off', viewtype='tp', motion_type='mean_fd')
 
+
 def save_heatmap(model, outname):
 
     sns.set()
@@ -1029,6 +602,7 @@ def save_heatmap(model, outname):
     ax.yaxis.set_major_locator(ticker.MultipleLocator(base=100))
     # plt.savefig('/home/json/Desktop/peer/hbm_figures/' + outname + '.png', dpi=600)
     plt.show()
+
 
 def create_swarms():
 
@@ -1095,15 +669,6 @@ def create_swarms():
     ax.set(title='RMSE Distribution for Different Training Sets in y')
     plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_y_comparison_scans.png')
 
-create_swarms()
-
-partial_brain_list = ['sub-5046805','sub-5069360','sub-5071657','sub-5115820','sub-5118608','sub-5140067','sub-5157882',
-'sub-5193449','sub-5231695','sub-5239398','sub-5311504','sub-5364155','sub-5387071','sub-5491074','sub-5502791',
-'sub-5518313','sub-5520169','sub-5684433','sub-5739609','sub-5757689','sub-5789629','sub-5807131','sub-5915264',
-'sub-5944469','sub-5092466','sub-5361512','sub-5401707','sub-5618945']
-
-# #############################################################################
-# Correlation matrix
 
 def create_corr_matrix():
 
@@ -1215,10 +780,6 @@ def grouping_ss(within, without):
 
 wi_mean_x, wo_mean_x, wi_stdv_x, wo_stdv_x = grouping_ss(wi_ss_x, wo_ss_x)
 wi_mean_y, wo_mean_y, wi_stdv_y, wo_stdv_y = grouping_ss(wi_ss_y, wo_ss_y)
-
-
-# #############################################################################
-# Paired t-test for correlation values comparing GSR vs non-GSR and training set combinations
 
 
 def extract_corr_values():
@@ -1377,11 +938,7 @@ def threshold_proportion(threshold=.50, type='gsr'):
 
     print(x_fract, y_fract)
 
-# threshold_proportion(threshold=.70, type='no-gsr')
 
-
-# #############################################################################
-# Line of best fit - relationship between head motion and correlation values
 
 def motion_linear_regression(motion='dvars', dimension='corr_x'):
 
@@ -2117,6 +1674,16 @@ eye_tracking_path = '/data2/HBN/EEG/data_RandID/'
 hbm_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 
 
+def scale_x_pos(fixation):
+
+    return (fixation - 400) * (1680 / 800)
+
+
+def scale_y_pos(fixation):
+
+    return (fixation - 300) * (1050 / 600)
+
+
 def et_samples_to_pandas(sub):
 
     sub = sub.strip('sub-')
@@ -2143,16 +1710,8 @@ def et_samples_to_pandas(sub):
 
     return df_msg_removed, start_time, end_time
 
-def scale_x_pos(fixation):
 
-    return (fixation - 400) * (1680 / 800)
-
-def scale_y_pos(fixation):
-
-    return (fixation - 300) * (1050 / 600)
-
-
-def average_fixations_per_TR(df, start_time, end_time):
+def average_fixations_per_tr(df, start_time, end_time):
 
     mean_fixations = []
 
@@ -2170,16 +1729,81 @@ def average_fixations_per_TR(df, start_time, end_time):
 
         mean_fixations.append([x_pos, y_pos])
 
-    return mean_fixations
+    df = pd.DataFrame(mean_fixations, columns=(['x_pred', 'y_pred']))
+
+    return df
 
 
-def save_mean_fixations(fixation_list):
+def save_mean_fixations(mean_df):
 
-    df = pd.DataFrame(fixation_list, columns=(['x_pred', 'y_pred']))
-    # df.to_csv(hbm_path + sub + '/et_device_pred.csv')
-    df.to_csv('/home/json/Desktop/test.csv')
+    mean_df.to_csv(hbm_path + sub + '/et_device_pred.csv')
+    # df.to_csv('/home/json/Desktop/test.csv')
 
-df_output, start_time, end_time = et_samples_to_pandas('sub-5026599')
-mean_fixations = average_fixations_per_TR(df_output, start_time, end_time)
-save_mean_fixations(mean_fixations)
 
+
+params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
+params = params.convert_objects(convert_numeric=True)
+sub_list = params.index.values.tolist()
+
+sub_list_with_et_and_peer = []
+
+for sub in sub_list:
+
+    try:
+
+        df_output, start_time, end_time = et_samples_to_pandas(sub)
+        mean_df = average_fixations_per_tr(df_output, start_time, end_time)
+        # save_mean_fixations(mean_df)
+
+        print('Completed processing ' + sub)
+        sub_list_with_et_and_peer.append(sub)
+
+    except:
+
+        print('Error processing ' + sub)
+
+
+def compare_et_and_peer(sub, plot=False):
+
+    df_output, start_time, end_time = et_samples_to_pandas(sub)
+    mean_df = average_fixations_per_tr(df_output, start_time, end_time)
+
+    peer_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/no_gsr_train1_tp_pred.csv')
+
+    corr_val = compute_icc(mean_df['x_pred'], peer_df['x_pred'])
+
+    if plot:
+
+        plt.figure(figsize=(10,5))
+        plt.plot(np.linspace(0, 249, 250), mean_df['x_pred'], 'r-', label='eye-tracker')
+        plt.plot(np.linspace(0, 249, 250), peer_df['x_pred'], 'b-', label='PEER')
+        plt.title(sub)
+        plt.xlabel('TR')
+        plt.ylabel('Fixation location (px)')
+        plt.legend()
+        plt.savefig('/home/json/Desktop/peer/et_peer_comparison/' + sub + '.png', dpi=1200)
+        plt.show()
+
+    return corr_val
+
+# sample_list_with_both_et_and_peer = ['sub-5743805', 'sub-5783223']
+# sub_list_with_et_and_peer
+# subset_list = ['sub-5161062', 'sub-5127994', 'sub-5049983', 'sub-5036745', 'sub-5002891', 'sub-5041416']
+
+corr_vals = []
+
+for sub in sub_list_with_et_and_peer:
+    try:
+        temp_val = compare_et_and_peer(sub, plot=False)
+        corr_vals.append(temp_val)
+        print(sub + ' processing completed.')
+    except:
+        continue
+
+index_vals = np.zeros(len(corr_vals))
+swarm_df = pd.DataFrame({'corr_x': corr_vals, 'index':index_vals})
+
+plt.clf()
+ax = sns.swarmplot(x='index', y='corr_x', data=swarm_df)
+ax.set(title='Correlation Distribution for Different Training Sets in x')
+plt.show()
