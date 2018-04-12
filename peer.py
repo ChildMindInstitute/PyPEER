@@ -240,8 +240,8 @@ def load_model(sub, test_file, gsr_status):
 
     test_vectors = np.asarray(listed_testing)
 
-    x_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_no_gsr_model.sav', 'rb'))
-    y_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_no_gsr_model.sav', 'rb'))
+    x_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_gsr0_train1_model.sav', 'rb'))
+    y_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_gsr0_train1_model.sav', 'rb'))
 
     ###################################
 
@@ -291,8 +291,8 @@ def save_models(sub, viewtype, x_corr, y_corr, x_error_sk, y_error_sk, predicted
         df_o = pd.DataFrame(output_dict)
         df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/' + predictions_save_name)
 
-        pickle.dump(x_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/' + model_save_name, 'wb'))
-        pickle.dump(y_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/' + model_save_name, 'wb'))
+        pickle.dump(x_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/x_' + model_save_name, 'wb'))
+        pickle.dump(y_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/y_' + model_save_name, 'wb'))
 
 
 def save_predictions(sub, predicted_x, predicted_y, predictions_save_name):
@@ -347,7 +347,7 @@ def peer_hbm(sub, viewtype='calibration', gsr_status=False, train_set='1'):
         predictions_save_name = model_save_name.strip('.sav') + '_' + viewtype + '_predictions.csv'
         parameters_save_name = model_save_name.strip('.sav') + '_parameters.csv'
 
-        if os.path.exists(resample_path + sub + '/' + model_save_name):
+        if (os.path.exists(resample_path + sub + '/x_' + model_save_name)) and (os.path.exists(resample_path + sub + '/y_' + model_save_name)):
             predicted_x, predicted_y = load_model(sub, test_file, gsr_status)
             save_predictions(sub, predicted_x, predicted_y, predictions_save_name)
         else:
@@ -361,13 +361,11 @@ def peer_hbm(sub, viewtype='calibration', gsr_status=False, train_set='1'):
         print('Error processing subject ' + str(sub))
 
 
-params, sub_list = load_data(min_scan=3)
-Parallel(n_jobs=25)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_status=False, train_set='13')for sub in sub_list)
+# params, sub_list = load_data(min_scan=2)
+# Parallel(n_jobs=25)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_status=True, train_set='1')for sub in sub_list)
 
 
 ########################################################################################################################
-
-params, sub_list = load_data(min_scan=2)
 
 
 def create_dict_with_rmse_and_corr_values(sub_list):
@@ -391,31 +389,35 @@ def create_dict_with_rmse_and_corr_values(sub_list):
 
         for train_set in file_dict.keys():
 
-            try:
+            if np.isnan(pd.DataFrame.from_csv(resample_path + sub + file_dict['3'])['corr_x'][0]):
 
-                temp_df = pd.DataFrame.from_csv(resample_path + sub + file_dict[train_set])
-                x_corr = temp_df['corr_x'][0]
-                y_corr = temp_df['corr_y'][0]
-                x_rmse = temp_df['rmse_x'][0]
-                y_rmse = temp_df['rmse_y'][0]
+                continue
 
+            else:
 
-                params_dict[train_set]['corr_x'].append(x_corr)
-                params_dict[train_set]['corr_y'].append(y_corr)
-                params_dict[train_set]['rmse_x'].append(x_rmse)
-                params_dict[train_set]['rmse_y'].append(y_rmse)
+                try:
 
-            except:
+                    temp_df = pd.DataFrame.from_csv(resample_path + sub + file_dict[train_set])
+                    x_corr = temp_df['corr_x'][0]
+                    y_corr = temp_df['corr_y'][0]
+                    x_rmse = temp_df['rmse_x'][0]
+                    y_rmse = temp_df['rmse_y'][0]
 
-                print('Error processing subject ' + sub + ' for ' + train_set)
+                    params_dict[train_set]['corr_x'].append(x_corr)
+                    params_dict[train_set]['corr_y'].append(y_corr)
+                    params_dict[train_set]['rmse_x'].append(x_rmse)
+                    params_dict[train_set]['rmse_y'].append(y_rmse)
+
+                except:
+
+                    print('Error processing subject ' + sub + ' for ' + train_set)
 
     return params_dict
-
 
 params_dict = create_dict_with_rmse_and_corr_values(sub_list)
 
 
-def create_individual_swarms(train_set='1'):
+def create_individual_swarms(params_dict, train_set='1'):
 
     train_name = [train_set for x in range(len(params_dict[train_set]['corr_x']))]
 
@@ -447,72 +449,6 @@ def create_individual_swarms(train_set='1'):
     ax.set(title='RMSE Distribution in y for Train Set ' + train_set)
     plt.ylim([0, upper_rmse_limit])
     plt.show()
-
-create_individual_swarms(train_set='3')
-
-
-def create_swarms(sub_list):
-
-    g_corr_x = []
-    g_corr_y = []
-    n_corr_x = []
-    n_corr_y = []
-    g_rmse_x = []
-    g_rmse_y = []
-    n_rmse_x = []
-    n_rmse_y = []
-
-    for sub in sub_list:
-
-        try:
-
-            gsr_pd = pd.read_csv(resample_path + sub + '/parameters_gsr.csv')
-            no_gsr_pd = pd.read_csv(resample_path + sub + '/parameters_no_gsr.csv')
-            two_gsr_pd = pd.read_csv(resample_path + sub + '/parameters_gsr_two_scans.csv')
-            g_corr_x.append(float(gsr_pd['corr_x'][0]))
-            g_corr_y.append(float(gsr_pd['corr_y'][0]))
-            g_rmse_x.append(float(gsr_pd['rmse_x'][0]))
-            g_rmse_y.append(float(gsr_pd['rmse_y'][0]))
-            n_corr_x.append(float(two_gsr_pd['corr_x'][0]))
-            n_corr_y.append(float(two_gsr_pd['corr_y'][0]))
-            n_rmse_x.append(float(two_gsr_pd['rmse_x'][0]))
-            n_rmse_y.append(float(two_gsr_pd['rmse_y'][0]))
-
-        except:
-
-            continue
-
-    g_index = ['Scan 1 & 3' for x in range(len(g_corr_x))]
-    n_index = ['Scan 1' for x in range(len(g_corr_x))]
-
-    tot = np.concatenate([g_index, n_index])
-    corr_x = np.concatenate([g_corr_x, n_corr_x])
-    corr_y = np.concatenate([g_corr_y, n_corr_y])
-    rmse_x = np.concatenate([g_rmse_x, n_rmse_x])
-    rmse_y = np.concatenate([g_rmse_y, n_rmse_y])
-
-    swarm_df = pd.DataFrame({'corr_x': corr_x, 'corr_y': corr_y, 'rmse_x': rmse_x, 'rmse_y': rmse_y, 'index': tot})
-
-    plt.clf()
-    ax = sns.swarmplot(x='index', y='corr_x', data=swarm_df)
-    ax.set(title='Correlation Distribution for Different Training Sets in x')
-    plt.savefig('/home/json/Desktop/peer/hbm_figures/corr_x_comparison_scans.png')
-    plt.clf()
-    ax = sns.swarmplot(x='index', y='corr_y', data=swarm_df)
-    ax.set(title='Correlation Distribution for Different Training Sets in y')
-    plt.savefig('/home/json/Desktop/peer/hbm_figures/corr_y_comparison_scans.png')
-    plt.clf()
-    ax = sns.swarmplot(x='index', y='rmse_x', data=swarm_df)
-    ax.set(title='RMSE Distribution for Different Training Sets in x')
-    plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_x_comparison_scans.png')
-    plt.clf()
-    ax = sns.swarmplot(x='index', y='rmse_y', data=swarm_df)
-    ax.set(title='RMSE Distribution for Different Training Sets in y')
-    plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_y_comparison_scans.png')
-
-
-
-params, sub_list = load_data(min_scan=2)
 
 
 def stack_fixation_series(params, viewtype='calibration', sorted_by='mean_fd'):
@@ -597,12 +533,50 @@ def stack_fixation_series(params, viewtype='calibration', sorted_by='mean_fd'):
 
     return x_hm, y_hm
 
+params, ubs_list = load_data(min_scan=2)
 x_hm, y_hm = stack_fixation_series(params, viewtype='calibration', sorted_by='mean_fd')
+
+
+x_ax = '1'
+y_ax = '13'
+
+def compare_correlations(sub_list):
+
+    params_dict = create_dict_with_rmse_and_corr_values(sub_list)
+
+    val_range = np.linspace(np.nanmin(params_dict[x_ax]['corr_x']), np.nanmax(params_dict[x_ax]['corr_x']))
+    m1, b1 = np.polyfit(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'], 1)
+    r2_text = 'r2 vale: ' + str(r2_score(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x']))
+
+    plt.figure()
+    plt.title('Comparing training sets ' + x_ax + ' and ' + y_ax + ' in x')
+    plt.xlabel('Training set ' + x_ax)
+    plt.ylabel('Training set ' + y_ax)
+    plt.scatter(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'], label='Correlation values')
+    plt.plot(val_range, m1 * val_range + b1, color='r', label=r2_text)
+    plt.plot([-.5, 1], [-.5, 1], '--', color='k', label='Identical Performance')
+    plt.legend()
+    plt.show()
+
+    val_range = np.linspace(np.nanmin(params_dict[x_ax]['corr_x']), np.nanmax(params_dict[x_ax]['corr_x']))
+    m1, b1 = np.polyfit(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'], 1)
+    r2_text = 'r2 vale: ' + str(r2_score(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x']))
+
+    plt.figure()
+    plt.title('Comparing training sets ' + x_ax + ' and ' + y_ax + ' in y')
+    plt.xlabel('Training set ' + x_ax)
+    plt.ylabel('Training set ' + y_ax)
+    plt.scatter(params_dict[x_ax]['corr_y'], params_dict[y_ax]['corr_y'], label='Correlation values')
+    plt.plot(val_range, m1 * val_range + b1, color='r', label=r2_text)
+    plt.plot([-.5, 1], [-.5, 1], '--', color='k', label='Identical Performance')
+    plt.legend()
+    plt.show()
+
 
 
 def plot_heatmap_from_stacked_fixation_series(fixation_series, viewtype, direc='x'):
 
-    """
+    """Plots heatmaps based on fixation series
 
     :param fixation_series: Numpy array containing stacked fixation series
     :param viewtype: Viewing stimulus
@@ -620,13 +594,8 @@ def plot_heatmap_from_stacked_fixation_series(fixation_series, viewtype, direc='
     ax.xaxis.set_major_locator(ticker.MultipleLocator(base=np.round(x_spacing/5, 0)))
     ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
     ax.yaxis.set_major_locator(ticker.MultipleLocator(base=100))
-    plt.title('Fixation Series for ' + viewtype + 'in ' + direc)
+    plt.title('Fixation Series for ' + viewtype + ' in ' + direc)
     plt.show()
-
-
-
-
-
 
 
 def create_corr_matrix():
