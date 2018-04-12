@@ -59,10 +59,23 @@ def load_data(min_scan=2):
 ########################################################################################################################
 
 
-
-
-
 def train_model(sub, train_file, test_file, gsr_status, viewtype):
+    """ Trains and creates model based on specified calibration scans
+
+    :param sub: Subject ID
+    :param train_file: List that contains calibration scans for training
+    :param test_file: String that contains name of calibration scan for testing
+    :param gsr_status: Whether or not to use GSR
+    :param viewtype: Viewing stimulus
+    :return: x_error_sk, the RMSE in the x-direction
+    :return: y_error_sk, the RMSE in the y-direction
+    :return: x_corr, the Pearson correlation value in the x-direction
+    :return: y_corr, the Pearson correlation value in the y-direction
+    :return: predicted_x, list containing predicted fixations in the x-direction
+    :return: predicted_y, list containing predicted fixations in the y-direction
+    :return: x_model, SVM model in the x-direction
+    :return: y_model, SVM model in the y-direction
+    """
 
     fixations = pd.read_csv('stim_vals.csv')
     x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, len(train_file))
@@ -182,167 +195,16 @@ def train_model(sub, train_file, test_file, gsr_status, viewtype):
     return x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model
 
 
-def three_valid(sub, gsr_, second_file, viewtype):
-
-    if viewtype == 'calibration_':
-
-        print('For analysis of subjects with three calibration scans')
-
-        scan1 = nib.load(resample_path + sub + '/peer1_eyes_sub.nii.gz')
-        scan1 = scan1.get_data()
-        print('Scan 1 loaded')
-        scan2 = nib.load(resample_path + sub + second_file)
-        scan2 = scan2.get_data()
-        print('Scan 2 loaded')
-        scan3 = nib.load(resample_path + sub + '/peer3_eyes_sub.nii.gz')
-        scan3 = scan3.get_data()
-        print('Scan 3 loaded')
-
-        print('Applying eye-mask')
-
-        for item in [scan1, scan2, scan3]:
-
-            for vol in range(item.shape[3]):
-                output = np.multiply(eye_mask, item[:, :, :, vol])
-
-                item[:, :, :, vol] = output
-
-        print('Applying mean-centering with variance-normalization and GSR')
-
-        for item in [scan1, scan2, scan3]:
-            item = mean_center_var_norm(item)
-
-            if int(gsr_) == 1:
-
-                item = gs_regress(item, eye_mask)
-
-            else:
-
-                continue
-
-        listed1 = []
-        listed2 = []
-        listed_testing = []
-
-        print('beginning vectors')
-
-        for tr in range(int(scan1.shape[3])):
-            tr_data1 = scan1[:, :, :, tr]
-            vectorized1 = np.array(tr_data1.ravel())
-            listed1.append(vectorized1)
-
-            tr_data2 = scan3[:, :, :, tr]
-            vectorized2 = np.array(tr_data2.ravel())
-            listed2.append(vectorized2)
-
-        for tr in range(int(scan2.shape[3])):
-            te_data = scan2[:, :, :, tr]
-            vectorized_testing = np.array(te_data.ravel())
-            listed_testing.append(vectorized_testing)
-
-        train_vectors1 = np.asarray(listed1)
-        test_vectors = np.asarray(listed_testing)
-        train_vectors2 = np.asarray(listed2)
-
-        # #############################################################################
-        # Averaging training signal
-
-        print('average vectors')
-
-        train_vectors = data_processing(3, train_vectors1, train_vectors2)
-
-        # #############################################################################
-        # Import coordinates for fixations
-
-        print('importing fixations')
-
-        fixations = pd.read_csv('stim_vals.csv')
-        x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 3 - 1)
-        y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 3 - 1)
-
-        # #############################################################################
-        # Create SVR Model
-
-        x_model, y_model = create_model(train_vectors, x_targets, y_targets)
-
-    else:
-
-        # What needs to be changed to have all necessary parameters to predict? x_model, y_model, test_vectors
-
-        scan2 = nib.load(resample_path + sub + second_file)
-        scan2 = scan2.get_data()
-        print('Scan 2 loaded')
-
-        print('Applying eye-mask')
-
-        for item in [scan2]:
-
-            for vol in range(item.shape[3]):
-                output = np.multiply(eye_mask, item[:, :, :, vol])
-
-                item[:, :, :, vol] = output
-
-        print('Applying mean-centering with variance-normalization and GSR')
-
-        for item in [scan2]:
-            item = mean_center_var_norm(item)
-
-            if int(gsr_) == 1:
-
-                item = gs_regress(item, eye_mask)
-
-            else:
-
-                continue
-
-        listed1 = []
-        listed2 = []
-        listed_testing = []
-
-        print('beginning vectors')
-
-        for tr in range(int(scan2.shape[3])):
-            te_data = scan2[:, :, :, tr]
-            vectorized_testing = np.array(te_data.ravel())
-            listed_testing.append(vectorized_testing)
-
-        test_vectors = np.asarray(listed_testing)
-
-        print('importing fixations')
-
-        fixations = pd.read_csv('stim_vals.csv')
-        x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 2 - 1)
-        y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 2 - 1)
-
-        x_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_no_gsr_model.sav', 'rb'))
-        y_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_no_gsr_model.sav', 'rb'))
-
-    predicted_x, predicted_y = predict_fixations(x_model, y_model, test_vectors)
-    predicted_x = np.array([np.round(float(x), 3) for x in predicted_x])
-    predicted_y = np.array([np.round(float(x), 3) for x in predicted_y])
-
-    # x_targets, y_targets = axis_plot(fixations, predicted_x, predicted_y, sub, train_sets=1)
-    # movie_plot(predicted_x, predicted_y, sub, train_sets=1)
-
-    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2, 1)
-    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2, 1)
-
-    if viewtype == 'calibration':
-
-        x_corr = compute_icc(predicted_x, x_targets)
-        y_corr = compute_icc(predicted_y, y_targets)
-
-        x_error_sk = np.sqrt(mean_squared_error(predicted_x, x_targets))
-        y_error_sk = np.sqrt(mean_squared_error(predicted_y, y_targets))
-
-    else:
-
-        x_corr = 0; y_corr = 0; x_error_sk = 0; y_error_sk = 0
-
-    return x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model
-
-
 def load_model(sub, test_file, gsr_status):
+
+    """Loads pre-existing model to predict fixations from new fMRI data
+
+    :param sub: Subject ID
+    :param test_file: String that contains name of calibration scan for testing
+    :param gsr_status: Whether or not to use GSR
+    :return: predicted_x, list containing predicted fixations in the x-direction
+    :return: predicted_y, list containing predicted fixations in the y-direction
+    """
 
     print('Load model')
 
@@ -390,161 +252,25 @@ def load_model(sub, test_file, gsr_status):
     return predicted_x, predicted_y
 
 
-def two_valid(sub, gsr_, second_file, viewtype):
-
-    print('For analysis of subjects with two calibration scans')
-
-    if viewtype == 'calibration+++++++++++++++++++++++++++++++++':
-
-        scan1 = nib.load(resample_path + sub + '/peer1_eyes_sub.nii.gz')
-        scan1 = scan1.get_data()
-        print('Scan 1 loaded')
-        scan2 = nib.load(resample_path + sub + second_file)
-        scan2 = scan2.get_data()
-        print('Scan 2 loaded')
-
-        print('Applying eye-mask')
-
-        for item in [scan1, scan2]:
-
-            for vol in range(item.shape[3]):
-                output = np.multiply(eye_mask, item[:, :, :, vol])
-
-                item[:, :, :, vol] = output
-
-        print('Applying mean-centering with variance-normalization and GSR')
-
-        for item in [scan1, scan2]:
-            item = mean_center_var_norm(item)
-
-            if int(gsr_) == 1:
-
-                item = gs_regress(item, eye_mask)
-
-            else:
-
-                continue
-
-        listed1 = []
-        listed2 = []
-        listed_testing = []
-
-        print('beginning vectors')
-
-        for tr in range(int(scan1.shape[3])):
-            tr_data1 = scan1[:, :, :, tr]
-            vectorized1 = np.array(tr_data1.ravel())
-            listed1.append(vectorized1)
-
-        for tr in range(int(scan2.shape[3])):
-            te_data = scan2[:, :, :, tr]
-            vectorized_testing = np.array(te_data.ravel())
-            listed_testing.append(vectorized_testing)
-
-        train_vectors1 = np.asarray(listed1)
-        test_vectors = np.asarray(listed_testing)
-
-        # #############################################################################
-        # Averaging training signal
-
-        print('average vectors')
-
-        train_vectors2 = []
-
-        train_vectors = data_processing(2, train_vectors1, train_vectors2)
-
-        # #############################################################################
-        # Import coordinates for fixations
-
-        print('importing fixations')
-
-        fixations = pd.read_csv('stim_vals.csv')
-        x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 2 - 1)
-        y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 2 - 1)
-
-        # #############################################################################
-        # Create SVR Model
-
-        x_model, y_model = create_model(train_vectors, x_targets, y_targets)
-
-    else:
-
-        scan2 = nib.load(resample_path + sub + second_file)
-        scan2 = scan2.get_data()
-        print('Scan 2 loaded')
-
-        print('Applying eye-mask')
-
-        for item in [scan2]:
-
-            for vol in range(item.shape[3]):
-                output = np.multiply(eye_mask, item[:, :, :, vol])
-
-                item[:, :, :, vol] = output
-
-        print('Applying mean-centering with variance-normalization and GSR')
-
-        for item in [scan2]:
-            item = mean_center_var_norm(item)
-
-            if int(gsr_) == 1:
-
-                item = gs_regress(item, eye_mask)
-
-            else:
-
-                continue
-
-        listed1 = []
-        listed2 = []
-        listed_testing = []
-
-        print('beginning vectors')
-
-        for tr in range(int(scan2.shape[3])):
-            te_data = scan2[:, :, :, tr]
-            vectorized_testing = np.array(te_data.ravel())
-            listed_testing.append(vectorized_testing)
-
-        test_vectors = np.asarray(listed_testing)
-
-        print('importing fixations')
-
-        fixations = pd.read_csv('stim_vals.csv')
-        x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 2 - 1)
-        y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 2 - 1)
-
-        x_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_no_gsr_train1_model.sav', 'rb'))
-        y_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_no_gsr_train1_model.sav', 'rb'))
-
-    predicted_x, predicted_y = predict_fixations(x_model, y_model, test_vectors)
-    predicted_x = np.array([np.round(float(x), 3) for x in predicted_x])
-    predicted_y = np.array([np.round(float(x), 3) for x in predicted_y])
-
-    # x_targets, y_targets = axis_plot(fixations, predicted_x, predicted_y, sub, train_sets=1)
-    # movie_plot(predicted_x, predicted_y, sub, train_sets=1)
-
-    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2, 1)
-    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2, 1)
-
-    if viewtype == 'calibration':
-
-        x_corr = compute_icc(predicted_x, x_targets)
-        y_corr = compute_icc(predicted_y, y_targets)
-
-        x_error_sk = np.sqrt(mean_squared_error(predicted_x, x_targets))
-        y_error_sk = np.sqrt(mean_squared_error(predicted_y, y_targets))
-
-    else:
-
-        x_corr = 0; y_corr = 0; x_error_sk = 0; y_error_sk = 0
-
-    return x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model
-
-
-
 def save_models(sub, viewtype, x_corr, y_corr, x_error_sk, y_error_sk, predicted_x, predicted_y,
                 x_model, y_model, model_save_name, predictions_save_name, parameters_save_name):
+
+    """
+
+    :param sub: Subject ID
+    :param viewtype: Viewing stimulus
+    :param x_corr: the Pearson correlation value in the x-direction
+    :param y_corr: the Pearson correlation value in the y-direction
+    :param x_error_sk: the RMSE in the x-direction
+    :param y_error_sk: the RMSE in the y-direction
+    :param predicted_x: list containing predicted fixations in the x-direction
+    :param predicted_y: list containing predicted fixations in the y-direction
+    :param x_model: SVM model in the x-direction
+    :param y_model: SVM model in the y-direction
+    :param model_save_name: Filename for SVM models
+    :param predictions_save_name: Filename for predictions in x- and y- directions
+    :param parameters_save_name: Filename for error measures from calibration scans
+    """
 
     print('Updating output for subject ' + str(sub))
 
@@ -568,7 +294,16 @@ def save_models(sub, viewtype, x_corr, y_corr, x_error_sk, y_error_sk, predicted
         pickle.dump(x_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/' + model_save_name, 'wb'))
         pickle.dump(y_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/' + model_save_name, 'wb'))
 
+
 def save_predictions(sub, predicted_x, predicted_y, predictions_save_name):
+
+    """Saves prediction series as csv
+
+    :param sub: Subject ID
+    :param predicted_x: list containing predicted fixations in the x-direction
+    :param predicted_y: list containing predicted fixations in the y-direction
+    :param predictions_save_name: Filename for predictions in x- and y- directions
+    """
 
     output_dict = {'x_pred': [], 'y_pred': []}
 
@@ -579,54 +314,15 @@ def save_predictions(sub, predicted_x, predicted_y, predictions_save_name):
     df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/' + predictions_save_name)
 
 
-def update_output(gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model, save_name, param_name, viewtype):
-
-    print('Updating output for subject ' + str(sub))
-
-    param_dict = {'sub': [sub, sub], 'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []}
-    output_dict = {'x_pred': [], 'y_pred': []}
-
-    if viewtype == 'calibration':
-
-        param_dict['corr_x'] = x_corr
-        param_dict['corr_y'] = y_corr
-        param_dict['rmse_x'] = x_error_sk
-        param_dict['rmse_y'] = y_error_sk
-        output_dict['x_pred'] = predicted_x
-        output_dict['y_pred'] = predicted_y
-
-        if gsr_ == 1:
-
-            df_p = pd.DataFrame(param_dict)
-            df_p.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/parameters_no_gsr_train1.csv')
-            df_o = pd.DataFrame(output_dict)
-            df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/predictions_no_gsr_train1.csv')
-
-            pickle.dump(x_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_gsr_model_train1.sav', 'wb'))
-            pickle.dump(y_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_gsr_model_train1.sav', 'wb'))
-
-        else:
-
-            df_p = pd.DataFrame(param_dict)
-            df_p.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/parameters_no_gsr_train1.csv')
-            df_o = pd.DataFrame(output_dict)
-            df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/predictions_no_gsr_train1.csv')
-
-            # pickle.dump(x_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_no_gsr_train13_model.sav', 'wb'))
-            # pickle.dump(y_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_no_gsr_train13_model.sav', 'wb'))
-
-    else:
-
-        output_dict['x_pred'] = predicted_x
-        output_dict['y_pred'] = predicted_y
-
-        df_o = pd.DataFrame(output_dict)
-        df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/' + str(save_name))
-
-    print('participant ' + str(sub) + ' complete')
-
-
 def peer_hbm(sub, viewtype='calibration', gsr_status=False, train_set='1'):
+
+    """Creates models and saves predictions and measures of fit (correlation, RMSE)
+
+    :param sub: Subject ID
+    :param viewtype: Viewing stimulus
+    :param gsr_status: Whether or not to use GSR
+    :param train_set: Specifies the set of calibration scans used for training
+    """
 
     print('Starting with participant ' + str(sub) + ' for viewing ' + str(viewtype))
 
@@ -667,6 +363,11 @@ def peer_hbm(sub, viewtype='calibration', gsr_status=False, train_set='1'):
 
 params, sub_list = load_data(min_scan=2)
 Parallel(n_jobs=25)(delayed(peer_hbm)(sub, params, viewtype='calibration', gsr_status=True, train_set='1')for sub in sub_list)
+
+
+########################################################################################################################
+
+
 
 
 def pred_aggregate(gsr_status='off', viewtype='calibration', motion_type='mean_fd'):
