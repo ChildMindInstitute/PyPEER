@@ -4,11 +4,7 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 from sklearn.svm import SVR
-from datetime import datetime
 import matplotlib.pyplot as plt
-from scipy.stats import ttest_rel
-from scipy.stats import pearsonr
-from sklearn.metrics import mean_squared_error
 from aux_process import *
 import pickle
 import seaborn as sns
@@ -16,7 +12,15 @@ import matplotlib.ticker as ticker
 from pylab import pcolor, show, colorbar
 from sklearn.metrics import mean_squared_error, r2_score
 
+from datetime import datetime
+
+from scipy.stats import ttest_rel
+from scipy.stats import pearsonr
+from sklearn.metrics import mean_squared_error
+
 from joblib import Parallel, delayed
+
+########################################################################################################################
 
 monitor_width = 1680
 monitor_height = 1050
@@ -26,7 +30,15 @@ eye_mask = nib.load('/data2/Projects/Jake/eye_masks/2mm_eye_corrected.nii.gz')
 eye_mask = eye_mask.get_data()
 resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 
+
 def load_data(min_scan=2):
+
+    """Returns list of subjects with at least the specified number of calibration scans
+
+    :param min_scan: Minimum number of scans required to be included in subject list
+    :return: Dataframe containing subject IDs, site of MRI collection, number of calibration scans, and motion measures
+    :return: List containing subjects with at least min_scan calibration scans
+    """
 
     params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
     params = params.convert_objects(convert_numeric=True)
@@ -41,11 +53,138 @@ def load_data(min_scan=2):
 
     sub_list = params.index.values.tolist()
 
-    return sub_list
+    return params, sub_list
+
+
+########################################################################################################################
+
+
+
+
+
+def train_model(sub, train_file, test_file, gsr_status, viewtype):
+
+    fixations = pd.read_csv('stim_vals.csv')
+    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, len(train_file))
+    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, len(train_file))
+
+    if len(train_file) == 2:
+
+        scan1 = nib.load(resample_path + sub + train_file[0])
+        scan2 = nib.load(resample_path + sub + test_file)
+        scan3 = nib.load(resample_path + sub + train_file[1])
+
+        scan1 = scan1.get_data()
+        scan2 = scan2.get_data()
+        scan3 = scan3.get_data()
+
+        for item in [scan1, scan2, scan3]:
+
+            for vol in range(item.shape[3]):
+                output = np.multiply(eye_mask, item[:, :, :, vol])
+
+                item[:, :, :, vol] = output
+
+        for item in [scan1, scan2, scan3]:
+            item = mean_center_var_norm(item)
+            if gsr_status == 1:
+                item = gs_regress(item, eye_mask)
+
+        listed1 = []
+        listed2 = []
+        listed_testing = []
+
+        print('beginning vectors')
+
+        for tr in range(int(scan1.shape[3])):
+            tr_data1 = scan1[:, :, :, tr]
+            vectorized1 = np.array(tr_data1.ravel())
+            listed1.append(vectorized1)
+
+            tr_data2 = scan3[:, :, :, tr]
+            vectorized2 = np.array(tr_data2.ravel())
+            listed2.append(vectorized2)
+
+        for tr in range(int(scan2.shape[3])):
+            te_data = scan2[:, :, :, tr]
+            vectorized_testing = np.array(te_data.ravel())
+            listed_testing.append(vectorized_testing)
+
+        train_vectors1 = np.asarray(listed1)
+        test_vectors = np.asarray(listed_testing)
+        train_vectors2 = np.asarray(listed2)
+
+        train_vectors = data_processing(3, train_vectors1, train_vectors2)
+
+
+    elif len(train_file) == 1:
+
+        scan1 = nib.load(resample_path + sub + train_file[0])
+        scan2 = nib.load(resample_path + sub + test_file)
+
+        scan1 = scan1.get_data()
+        scan2 = scan2.get_data()
+
+        for item in [scan1, scan2]:
+
+            for vol in range(item.shape[3]):
+                output = np.multiply(eye_mask, item[:, :, :, vol])
+
+                item[:, :, :, vol] = output
+
+        for item in [scan1, scan2]:
+            item = mean_center_var_norm(item)
+            if gsr_status == 1:
+                item = gs_regress(item, eye_mask)
+
+        listed1 = []
+        listed_testing = []
+
+        print('beginning vectors')
+
+        for tr in range(int(scan1.shape[3])):
+            tr_data1 = scan1[:, :, :, tr]
+            vectorized1 = np.array(tr_data1.ravel())
+            listed1.append(vectorized1)
+
+        for tr in range(int(scan2.shape[3])):
+            te_data = scan2[:, :, :, tr]
+            vectorized_testing = np.array(te_data.ravel())
+            listed_testing.append(vectorized_testing)
+
+        train_vectors1 = np.asarray(listed1)
+        test_vectors = np.asarray(listed_testing)
+
+        train_vectors2 = []
+
+        train_vectors = data_processing(2, train_vectors1, train_vectors2)
+
+    x_model, y_model = create_model(train_vectors, x_targets, y_targets)
+    print('Finished creating model')
+
+    predicted_x, predicted_y = predict_fixations(x_model, y_model, test_vectors)
+    predicted_x = np.array([np.round(float(x), 3) for x in predicted_x])
+    predicted_y = np.array([np.round(float(x), 3) for x in predicted_y])
+
+    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2, 1)
+    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2, 1)
+
+    if viewtype == 'calibration':
+
+        x_corr = pearsonr(predicted_x, x_targets)[0]
+        y_corr = pearsonr(predicted_y, y_targets)[0]
+
+        x_error_sk = np.sqrt(mean_squared_error(predicted_x, x_targets))
+        y_error_sk = np.sqrt(mean_squared_error(predicted_y, y_targets))
+
+        print('Finished calculating parameters')
+
+    return x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model
+
 
 def three_valid(sub, gsr_, second_file, viewtype):
 
-    if viewtype == 'calibration+++++':
+    if viewtype == 'calibration_':
 
         print('For analysis of subjects with three calibration scans')
 
@@ -203,6 +342,54 @@ def three_valid(sub, gsr_, second_file, viewtype):
     return x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model
 
 
+def load_model(sub, test_file, gsr_status):
+
+    print('Load model')
+
+    scan2 = nib.load(resample_path + sub + test_file)
+    scan2 = scan2.get_data()
+    print('Scan 2 loaded')
+
+    print('Applying eye-mask')
+
+    for item in [scan2]:
+
+        for vol in range(item.shape[3]):
+            output = np.multiply(eye_mask, item[:, :, :, vol])
+
+            item[:, :, :, vol] = output
+
+    print('Applying mean-centering with variance-normalization and GSR')
+
+    scan2 = mean_center_var_norm(scan2)
+
+    if gsr_status == 1:
+
+        scan2 = gs_regress(scan2, eye_mask)
+
+    listed_testing = []
+
+    print('beginning vectors')
+
+    for tr in range(int(scan2.shape[3])):
+        te_data = scan2[:, :, :, tr]
+        vectorized_testing = np.array(te_data.ravel())
+        listed_testing.append(vectorized_testing)
+
+    test_vectors = np.asarray(listed_testing)
+
+    x_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/x_no_gsr_model.sav', 'rb'))
+    y_model = pickle.load(open('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/y_no_gsr_model.sav', 'rb'))
+
+    ###################################
+
+    predicted_x, predicted_y = predict_fixations(x_model, y_model, test_vectors)
+    predicted_x = np.array([np.round(float(x), 3) for x in predicted_x])
+    predicted_y = np.array([np.round(float(x), 3) for x in predicted_y])
+
+    return predicted_x, predicted_y
+
+
 def two_valid(sub, gsr_, second_file, viewtype):
 
     print('For analysis of subjects with two calibration scans')
@@ -355,7 +542,44 @@ def two_valid(sub, gsr_, second_file, viewtype):
     return x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model
 
 
-def update_output(params, gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model, save_name, param_name, viewtype):
+
+def save_models(sub, viewtype, x_corr, y_corr, x_error_sk, y_error_sk, predicted_x, predicted_y,
+                x_model, y_model, model_save_name, predictions_save_name, parameters_save_name):
+
+    print('Updating output for subject ' + str(sub))
+
+    param_dict = {'sub': [sub, sub], 'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []}
+    output_dict = {'x_pred': [], 'y_pred': []}
+
+    if viewtype == 'calibration':
+
+        param_dict['corr_x'] = x_corr
+        param_dict['corr_y'] = y_corr
+        param_dict['rmse_x'] = x_error_sk
+        param_dict['rmse_y'] = y_error_sk
+        output_dict['x_pred'] = predicted_x
+        output_dict['y_pred'] = predicted_y
+
+        df_p = pd.DataFrame(param_dict)
+        df_p.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/' + parameters_save_name)
+        df_o = pd.DataFrame(output_dict)
+        df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + str(sub) + '/' + predictions_save_name)
+
+        pickle.dump(x_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/' + model_save_name, 'wb'))
+        pickle.dump(y_model, open('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/' + model_save_name, 'wb'))
+
+def save_predictions(sub, predicted_x, predicted_y, predictions_save_name):
+
+    output_dict = {'x_pred': [], 'y_pred': []}
+
+    output_dict['x_pred'] = predicted_x
+    output_dict['y_pred'] = predicted_y
+
+    df_o = pd.DataFrame(output_dict)
+    df_o.to_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/' + predictions_save_name)
+
+
+def update_output(gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model, save_name, param_name, viewtype):
 
     print('Updating output for subject ' + str(sub))
 
@@ -402,67 +626,47 @@ def update_output(params, gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, pre
     print('participant ' + str(sub) + ' complete')
 
 
-def peer_hbm(sub, viewtype='calibration', gsr_='on'):
+def peer_hbm(sub, viewtype='calibration', gsr_status=False, train_set='1'):
 
-    print('Starting with participant ' + str(sub) + ' for viewing ' + str(viewtype) + ' with gsr ' + str(gsr_))
+    print('Starting with participant ' + str(sub) + ' for viewing ' + str(viewtype))
+
+    model_type = {'calibration': {'1': {'train': ['/peer1_eyes_sub.nii.gz'], 'test': '/peer2_eyes_sub.nii.gz'},
+                                  '3': {'train': ['/peer3_eyes_sub.nii.gz'], 'test': '/peer2_eyes_sub.nii.gz'},
+                                  '13': {'train': ['/peer1_eyes_sub.nii.gz', '/peer3_eyes_sub.nii.gz'],
+                                         'test': '/peer2_eyes_sub.nii.gz'}},
+                  'tp': {'1': {'test': '/movie_TP_eyes_sub.nii.gz'}},
+                  'dm': {'1': {'test': '/movie_DM_eyes_sub.nii.gz'}}}
 
     try:
 
-        if gsr_ == 'on':
-            gsr_ = 1
+        gsr_status = int(gsr_status)
+        test_file = model_type[viewtype][train_set]['test']
+
+        if viewtype == 'calibration':
+            train_file = model_type[viewtype][train_set]['train']  # If train_set = '13', we have TWO training files
         else:
-            gsr_ = 0
+            train_file = ''
 
-        fixations = pd.read_csv('stim_vals.csv')
-        x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2, 3 - 1)
-        y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2, 3 - 1)
+        model_save_name = 'gsr' + str(gsr_status) + '_train' + train_set + '_model.sav'
+        predictions_save_name = model_save_name.strip('.sav') + '_' + viewtype + '_predictions.csv'
+        parameters_save_name = model_save_name.strip('.sav') + '_parameters.csv'
 
-        params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
-
-        scan_count = int(params.loc[sub, 'scan_count'])
-
-        scan_count = 2
-        viewtype = 'calibration'
-        gsr_ = 0
-
-        if (viewtype == 'calibration') & (gsr_ == 1):
-            second_file = '/peer2_eyes_sub.nii.gz'
-            param_name = 'gsr_params.csv'
-            save_name = 'gsr_pred.csv'
-        elif (viewtype == 'calibration') & (gsr_ == 0):
-            second_file = '/peer2_eyes_sub.nii.gz'
-            param_name = 'no_gsr_train1_params.csv'
-            save_name = 'no_gsr_train1_pred.csv'
-        elif viewtype == 'tp':
-            second_file = '/movie_TP_eyes_sub.nii.gz'
-            save_name = 'no_gsr_train1_tp_pred.csv'
-        elif viewtype == 'dm':
-            second_file = '/movie_DM_eyes_sub.nii.gz'
-            save_name = 'no_gsr_train1_dm_pred.csv'
-
-        if scan_count == 3:
-
-            x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model = three_valid(sub, gsr_, second_file, viewtype)
-            update_output(params, gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model, save_name, param_name, viewtype)
-
-        elif scan_count == 2:
-
-            x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model = two_valid(sub, gsr_, second_file, viewtype)
-            update_output(params, gsr_, sub, x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model, save_name, param_name, viewtype)
-
+        if os.path.exists(resample_path + sub + '/' + model_save_name):
+            predicted_x, predicted_y = load_model(sub, test_file, gsr_status)
+            save_predictions(sub, predicted_x, predicted_y, predictions_save_name)
         else:
-
-            print('Not enough scans for analysis')
+            x_error_sk, y_error_sk, x_corr, y_corr, predicted_x, predicted_y, x_model, y_model = \
+                train_model(sub, train_file, test_file, gsr_status, viewtype)
+            save_models(sub, viewtype, x_corr, y_corr, x_error_sk, y_error_sk, predicted_x, predicted_y,
+                        x_model, y_model, model_save_name, predictions_save_name, parameters_save_name)
 
     except:
 
         print('Error processing subject ' + str(sub))
 
-sub_list = load_data(min_scan=3)
 
-# Parallel(n_jobs=25)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_='off')for sub in sub_list)
-# Parallel(n_jobs=15)(delayed(peer_hbm)(sub, viewtype='tp', gsr_='off')for sub in sub_list)
-# Parallel(n_jobs=15)(delayed(peer_hbm)(sub, viewtype='dm', gsr_='off')for sub in sub_list)
+params, sub_list = load_data(min_scan=2)
+Parallel(n_jobs=25)(delayed(peer_hbm)(sub, params, viewtype='calibration', gsr_status=True, train_set='1')for sub in sub_list)
 
 
 def pred_aggregate(gsr_status='off', viewtype='calibration', motion_type='mean_fd'):
@@ -768,6 +972,7 @@ plt.title('Within and Between Movie Correlation Discriminability in y')
 sns.violinplot(x='x_ax', y='y', hue='within_without_group', data=df, split=True,
                inner='quart', palette={'Within': 'b', 'Without': 'y'})
 plt.savefig('/home/json/Desktop/peer/hbm_figures/within_between_y.png', dpi=600)
+
 
 def grouping_ss(within, without):
 
@@ -1737,7 +1942,6 @@ def average_fixations_per_tr(df, start_time, end_time):
 def save_mean_fixations(mean_df):
 
     mean_df.to_csv(hbm_path + sub + '/et_device_pred.csv')
-    # df.to_csv('/home/json/Desktop/test.csv')
 
 
 
@@ -1753,7 +1957,7 @@ for sub in sub_list:
 
         df_output, start_time, end_time = et_samples_to_pandas(sub)
         mean_df = average_fixations_per_tr(df_output, start_time, end_time)
-        # save_mean_fixations(mean_df)
+        save_mean_fixations(mean_df)
 
         print('Completed processing ' + sub)
         sub_list_with_et_and_peer.append(sub)
@@ -1777,11 +1981,11 @@ def compare_et_and_peer(sub, plot=False):
         plt.figure(figsize=(10,5))
         plt.plot(np.linspace(0, 249, 250), mean_df['x_pred'], 'r-', label='eye-tracker')
         plt.plot(np.linspace(0, 249, 250), peer_df['x_pred'], 'b-', label='PEER')
-        plt.title(sub)
+        plt.title(sub + ' with correlation value: ' + str(corr_val)[:5])
         plt.xlabel('TR')
         plt.ylabel('Fixation location (px)')
         plt.legend()
-        plt.savefig('/home/json/Desktop/peer/et_peer_comparison/' + sub + '.png', dpi=1200)
+        plt.savefig('/home/json/Desktop/peer/et_peer_comparison/bad_et/' + sub + '.png', dpi=1200)
         plt.show()
 
     return corr_val
@@ -1795,7 +1999,7 @@ corr_vals = []
 for sub in sub_list_with_et_and_peer:
     try:
         temp_val = compare_et_and_peer(sub, plot=False)
-        corr_vals.append(temp_val)
+        corr_vals.append([temp_val, sub])
         print(sub + ' processing completed.')
     except:
         continue
@@ -1805,5 +2009,261 @@ swarm_df = pd.DataFrame({'corr_x': corr_vals, 'index':index_vals})
 
 plt.clf()
 ax = sns.swarmplot(x='index', y='corr_x', data=swarm_df)
-ax.set(title='Correlation Distribution for Different Training Sets in x')
+ax.set(title='Correlation Distribution for Eye-Tracker vs. PEER in x')
 plt.show()
+
+
+
+
+
+
+et_list = ['sub-5002891','sub-5016867','sub-5028550','sub-5032610','sub-5036745','sub-5041416',
+ 'sub-5049983',
+ 'sub-5127994',
+ 'sub-5161062',
+ 'sub-5162937',
+ 'sub-5169363',
+ 'sub-5190972',
+ 'sub-5206511',
+ 'sub-5219925',
+ 'sub-5227193',
+ 'sub-5231865',
+ 'sub-5238801',
+ 'sub-5249438',
+ 'sub-5266756',
+ 'sub-5284922',
+ 'sub-5291254',
+ 'sub-5291284',
+ 'sub-5310336',
+ 'sub-5319102',
+ 'sub-5342081',
+ 'sub-5375165',
+ 'sub-5378545',
+ 'sub-5396885',
+ 'sub-5397290',
+ 'sub-5422296',
+ 'sub-5422890',
+ 'sub-5465986',
+ 'sub-5472150',
+ 'sub-5476502',
+ 'sub-5484500',
+ 'sub-5505585',
+ 'sub-5506824',
+ 'sub-5531229',
+ 'sub-5534291',
+ 'sub-5536087',
+ 'sub-5552032',
+ 'sub-5565519',
+ 'sub-5569056',
+ 'sub-5574873',
+ 'sub-5593729',
+ 'sub-5601764',
+ 'sub-5617898',
+ 'sub-5630057',
+ 'sub-5631924',
+ 'sub-5642131',
+ 'sub-5652036',
+ 'sub-5659524',
+ 'sub-5669325',
+ 'sub-5673128',
+ 'sub-5730047',
+ 'sub-5730803',
+ 'sub-5743805',
+ 'sub-5755188',
+ 'sub-5755327',
+ 'sub-5773707',
+ 'sub-5783223',
+ 'sub-5794133',
+ 'sub-5797959',
+ 'sub-5808453',
+ 'sub-5814325',
+ 'sub-5814978',
+ 'sub-5820160',
+ 'sub-5824845',
+ 'sub-5837180',
+ 'sub-5844932',
+ 'sub-5852696',
+ 'sub-5858221',
+ 'sub-5865523',
+ 'sub-5865707',
+ 'sub-5920995',
+ 'sub-5931672',
+ 'sub-5942168',
+ 'sub-5982802',
+ 'sub-5984037',
+ 'sub-5986705']
+
+def individual_series(peer_list, et_list):
+
+    et_series = {}
+    peer_series = {}
+
+    for sub in peer_list:
+
+        try:
+
+            sub_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/no_gsr_train1_tp_pred.csv')
+            sub_x = sub_df['x_pred']
+            sub_y = sub_df['y_pred']
+
+            peer_series[sub] = {'x': sub_x, 'y': sub_y}
+
+        except:
+
+            print('Error with subject ' + sub)
+
+    for sub in et_list:
+
+        try:
+
+            sub_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv')
+            sub_x = sub_df['x_pred']
+            sub_y = sub_df['y_pred']
+
+            et_series[sub] = {'x': sub_x, 'y': sub_y}
+
+        except:
+
+            print('Error with subject ' + sub)
+
+    return et_series, peer_series
+
+def mean_series(peer_list, et_list):
+    # peer_list = subjects with valid peer scans
+    # et_list = subjects with valid et data
+
+    et_series = {'x': [], 'y': []}
+    peer_series = {'x': [], 'y': []}
+
+    for sub in peer_list:
+
+        try:
+
+            sub_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/no_gsr_train1_tp_pred.csv')
+            sub_x = sub_df['x_pred']
+            sub_y = sub_df['y_pred']
+
+            if len(sub_x) == 250:
+                peer_series['x'].append(np.array(sub_x))
+                peer_series['y'].append(np.array(sub_y))
+
+            else:
+                print(sub)
+
+        except:
+
+            print('Error with subject ' + sub)
+
+    for sub in et_list:
+
+        try:
+
+            sub_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv')
+            sub_x = sub_df['x_pred']
+            sub_y = sub_df['y_pred']
+            et_series['x'].append(np.array(sub_x))
+            et_series['y'].append(np.array(sub_y))
+        except:
+
+            print('Error with subject ' + sub)
+
+    et_mean_series = {'x': np.nanmean(et_series['x'], axis=0), 'y': np.nanmean(et_series['y'], axis=0)}
+    peer_mean_series = {'x': np.nanmean(peer_series['x'], axis=0), 'y': np.nanmean(peer_series['y'], axis=0)}
+
+    return et_mean_series, peer_mean_series
+
+et_individual_series, peer_individual_series = individual_series(sub_list, et_list)
+et_mean_series, peer_mean_series = mean_series(sub_list, et_list)
+
+#### Create mean fixation series for PEER and ET gaze locations
+
+
+sub_np5 = ['sub-5161062',
+ 'sub-5190972',
+ 'sub-5249438',
+ 'sub-5266756',
+ 'sub-5422296',
+ 'sub-5783223',
+ 'sub-5808453',
+ 'sub-5814978',
+ 'sub-5844932',
+ 'sub-5858221']
+
+
+def compare_individual_and_mean_series(et_individual_series, et_mean_series, peer_individual_series, peer_mean_series, plot=False):
+
+    sub_performance = {}
+
+    for sub in et_list:
+
+        try:
+
+            corr_val_et_x = pearsonr(et_individual_series[sub]['x'], et_mean_series['x'])[0]
+            corr_val_et_y = pearsonr(et_individual_series[sub]['y'], et_mean_series['y'])[0]
+            corr_val_peer_x = pearsonr(peer_individual_series[sub]['x'], peer_mean_series['x'])[0]
+            corr_val_peer_y = pearsonr(peer_individual_series[sub]['y'], peer_mean_series['y'])[0]
+
+            sub_performance[sub] = {'et': {'x': corr_val_et_x, 'y': corr_val_et_y},
+                                    'peer': {'x': corr_val_peer_x, 'y': corr_val_peer_y}}
+
+        except:
+
+            print('Error with subject ' + sub)
+
+    return sub_performance
+
+sub_performance = compare_individual_and_mean_series(et_individual_series, et_mean_series, peer_individual_series, peer_mean_series)
+
+x_axis = np.linspace(0, len(et_individual_series[sub]['x']), len(et_individual_series[sub]['x']))
+
+def plot_fixation_series_comparison(sub, dim='x', datatype='peer'):
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(x_axis, peer_individual_series[sub][dim], 'r-', label='Individual')
+    plt.plot(x_axis, peer_mean_series[dim], 'b-', label='Mean')
+    plt.legend()
+    plt.title(sub + ' for PEER with correlation value ' + str(sub_performance[sub][datatype][dim]))
+    # plt.savefig('/home/json/Desktop/peer/et_peer_comparison/bad_et_mean/' + datatype + '_' + sub + '.png', dpi=600)
+    plt.show()
+
+
+for sub in list(sub_performance.keys())[:5]:
+
+    plot_fixation_series_comparison(sub, dim='x', datatype='peer')
+
+
+
+
+
+
+x_et = []
+y_et = []
+x_peer = []
+y_peer = []
+
+for sub in sub_performance.keys():
+    x_et.append(sub_performance[sub]['et']['x'])
+    y_et.append(sub_performance[sub]['et']['y'])
+    x_peer.append(sub_performance[sub]['peer']['x'])
+    y_peer.append(sub_performance[sub]['peer']['y'])
+
+
+index_vals = np.zeros(len(sub_performance.keys()))
+swarm_df = pd.DataFrame({'x_et': x_et, 'y_et': y_et, 'x_peer': x_peer, 'y_peer': y_peer, 'index': index_vals})
+
+
+
+
+
+plt.clf()
+ax = sns.swarmplot(x='index', y='y_peer', data=swarm_df)
+ax.set(title='PEER for Individual vs. Mean in y')
+plt.savefig('/home/json/Desktop/peer/et_peer_comparison/et_peer_mean_corr_swarm/PEER_y.png', dpi=600)
+plt.show()
+
+
+
+
+
+
+
