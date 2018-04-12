@@ -362,11 +362,53 @@ def peer_hbm(sub, viewtype='calibration', gsr_status=False, train_set='1'):
 
 
 params, sub_list = load_data(min_scan=2)
-Parallel(n_jobs=25)(delayed(peer_hbm)(sub, params, viewtype='calibration', gsr_status=True, train_set='1')for sub in sub_list)
+Parallel(n_jobs=25)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_status=False, train_set='1')for sub in sub_list)
 
 
 ########################################################################################################################
 
+params, sub_list = load_data(min_scan=3)
+
+def create_dict_with_rmse_and_corr_values():
+
+    """Creates dictionary that contains list of rmse and corr values for all training combinations
+
+    :return: Dictionary that contains list of rmse and corr values for all training combinations
+    """
+
+    file_dict = {'1': '/parameters_no_gsr_train1.csv',
+                 '3': '/parameters_no_gsr_train3.csv',
+                 '13': '/parameters_no_gsr_train13.csv',
+                 '1gsr': '/gsr1_train1_model_parameters.csv'}
+
+    params_dict = {'1': {'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []},
+                   '3': {'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []},
+                   '13': {'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []},
+                   '1gsr': {'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []}}
+
+    for sub in sub_list:
+
+        for train_set in file_dict.keys():
+
+            try:
+
+                temp_df = pd.DataFrame.from_csv(resample_path + sub + file_dict[train_set])
+                x_corr = temp_df['corr_x'][0]
+                y_corr = temp_df['corr_y'][0]
+                x_rmse = temp_df['rmse_x'][0]
+                y_rmse = temp_df['rmse_y'][0]
+
+
+                params_dict[train_set]['corr_x'].append(x_corr)
+                params_dict[train_set]['corr_y'].append(y_corr)
+                params_dict[train_set]['rmse_x'].append(x_rmse)
+                params_dict[train_set]['rmse_y'].append(y_rmse)
+
+            except:
+
+                print('Error processing subject ' + sub + ' for ' + train_set)
+
+    return params_dict
 
 
 
@@ -509,7 +551,13 @@ def save_heatmap(model, outname):
     plt.show()
 
 
-def create_swarms():
+
+
+
+
+
+
+def create_swarms(sub_list):
 
     g_corr_x = []
     g_corr_y = []
@@ -519,12 +567,6 @@ def create_swarms():
     g_rmse_y = []
     n_rmse_x = []
     n_rmse_y = []
-
-    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
-    params = params.convert_objects(convert_numeric=True)
-    params = params[params.scan_count == 3]
-    sub_list = params.index.values.tolist()
-    sub_list = [x for x in sub_list if x not in partial_brain_list]
 
     for sub in sub_list:
 
