@@ -361,24 +361,25 @@ def peer_hbm(sub, viewtype='calibration', gsr_status=False, train_set='1'):
         print('Error processing subject ' + str(sub))
 
 
-params, sub_list = load_data(min_scan=2)
-Parallel(n_jobs=25)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_status=False, train_set='1')for sub in sub_list)
+params, sub_list = load_data(min_scan=3)
+Parallel(n_jobs=25)(delayed(peer_hbm)(sub, viewtype='calibration', gsr_status=False, train_set='13')for sub in sub_list)
 
 
 ########################################################################################################################
 
-params, sub_list = load_data(min_scan=3)
+params, sub_list = load_data(min_scan=2)
 
-def create_dict_with_rmse_and_corr_values():
+
+def create_dict_with_rmse_and_corr_values(sub_list):
 
     """Creates dictionary that contains list of rmse and corr values for all training combinations
 
     :return: Dictionary that contains list of rmse and corr values for all training combinations
     """
 
-    file_dict = {'1': '/parameters_no_gsr_train1.csv',
-                 '3': '/parameters_no_gsr_train3.csv',
-                 '13': '/parameters_no_gsr_train13.csv',
+    file_dict = {'1': '/gsr0_train1_model_parameters.csv',
+                 '3': '/gsr0_train3_model_parameters.csv',
+                 '13': '/gsr0_train13_model_parameters.csv',
                  '1gsr': '/gsr1_train1_model_parameters.csv'}
 
     params_dict = {'1': {'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []},
@@ -411,150 +412,43 @@ def create_dict_with_rmse_and_corr_values():
     return params_dict
 
 
-
-def pred_aggregate(gsr_status='off', viewtype='calibration', motion_type='mean_fd'):
-
-    if gsr_status == 'off':
-        filename = 'predictions_no_gsr.csv'
-        outname = viewtype + '_no_gsr_' + motion_type
-    elif gsr_status == 'on':
-        if viewtype == 'calibration':
-            filename = 'predictions_gsr.csv'
-            outname = viewtype + '_gsr_' + motion_type
-        elif viewtype == 'tp':
-            filename = 'tppredictions.csv'
-            outname = 'tp_' + motion_type
-        elif viewtype == 'dm':
-            filename = 'dmpredictions.csv'
-            outname = 'dm_' + motion_type
-
-    outname_x = outname + str('_x')
-    outname_y = outname + str('_y')
-
-    monitor_width = 1680
-    monitor_height = 1050
-
-    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
-    params = params.convert_objects(convert_numeric=True)
-    params = params[(params.scan_count == 3) | (params.scan_count == 2)]
-    params = params.sort_values(by=motion_type, ascending=True)
-    sub_list = params.index.values.tolist()
-
-    cov = pd.read_csv('Peer_pheno.csv', index_col='SubID')
-    cov = cov.convert_objects(convert_numeric=True)
-    cov = cov.sort_values(by='SWAN_HY', ascending=True)
-    cov_t = cov.index.values.tolist()
-
-    cov_t2 = ['sub-' + str(x) for x in cov_t]
-    cov_t3 = [x for x in cov_t2 if x in sub_list]
-    sub_list = cov_t3
-
-    x_temp = []
-    y_temp = []
-    count = 0
-
-    for sub in sub_list:
-
-        try:
-
-            if count < len(sub_list):
-
-                data = pd.read_csv(resample_path + str(sub) + '/'+ filename)
-                x_out = list(data['x_pred'])
-                y_out = list(data['y_pred'])
-
-                if count == 0:
-                    expected_len = len(x_out)
-
-                if expected_len == len(x_out):
-
-                    for x in range(len(x_out)):
-                        if abs(x_out[x]) > monitor_width/2 + .10 * monitor_width:
-                            x_out[x] = 0
-                        else:
-                            x_out[x] = x_out[x]
-
-                    for x in range(len(y_out)):
-                        if abs(y_out[x]) > monitor_height/2 + .10 * monitor_height:
-                            y_out[x] = 0
-                        else:
-                            y_out[x] = y_out[x]
-
-                    x_out = np.array(x_out)
-                    y_out = np.array(y_out)
-
-                    x_temp.append(x_out)
-                    y_temp.append(y_out)
-
-                count += 1
-
-            else:
-
-                break
-
-        except:
-
-            continue
-
-    # Import fixations
-
-    fixations = pd.read_csv('stim_vals.csv')
-    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2, 1)
-    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 5) * monitor_width / 2, 1)
-
-    arr = np.zeros(len(x_out))
-    arrx = np.array([-np.round(monitor_width/2, 0) for x in arr])
-    arry = np.array([-np.round(monitor_height/2, 0) for x in arr])
-
-    if viewtype == 'calibration':
-
-        for num in range(int(np.round(len(sub_list)*.02, 0))):
-            x_temp.append(arrx)
-            y_temp.append(arry)
-
-        for num in range(int(np.round(len(sub_list)*.02, 0))):
-            x_temp.append(x_targets)
-            y_temp.append(y_targets)
-
-    else:
-
-        for num in range(int(np.round(len(sub_list) * .02, 0))):
-            x_temp.append(arrx)
-            y_temp.append(arry)
-
-        for num in range(int(np.round(len(sub_list) * .02, 0))):
-            x_temp.append(np.mean(x_temp, axis=0))
-            y_temp.append(np.mean(y_temp, axis=0))
-
-    x_hm = np.stack(x_temp)
-    y_hm = np.stack(y_temp)
-
-    save_heatmap(x_hm, outname_x)
-    save_heatmap(y_hm, outname_y)
-
-    return x_hm, y_hm
-
-# x_hm, y_hm = pred_aggregate(gsr_status='off', viewtype='tp', motion_type='mean_fd')
+params_dict = create_dict_with_rmse_and_corr_values(sub_list)
 
 
-def save_heatmap(model, outname):
+def create_individual_swarms(train_set='1'):
+
+    train_name = [train_set for x in range(len(params_dict[train_set]['corr_x']))]
+
+    swarm_df = pd.DataFrame({'corr_x': params_dict[train_set]['corr_x'],
+                             'corr_y': params_dict[train_set]['corr_y'],
+                             'rmse_x': params_dict[train_set]['rmse_x'],
+                             'rmse_y': params_dict[train_set]['rmse_y'],
+                             'index': train_name})
+
+    upper_rmse_limit = 2000
 
     sns.set()
-    plt.clf()
-    ax = sns.heatmap(model)
-    ax.set(xlabel='Volumes', ylabel='Subjects')
-    ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
-    ax.xaxis.set_major_locator(ticker.MultipleLocator(base=20))
-    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(base=100))
-    # plt.savefig('/home/json/Desktop/peer/hbm_figures/' + outname + '.png', dpi=600)
+    ax = sns.swarmplot(x='index', y='corr_x', data=swarm_df)
+    ax.set(title='Correlation Distribution in x for Train Set ' + train_set)
+    plt.ylim([-1, 1])
+    plt.show()
+    sns.set()
+    ax = sns.swarmplot(x='index', y='corr_y', data=swarm_df)
+    ax.set(title='Correlation Distribution in y for Train Set ' + train_set)
+    plt.ylim([-1, 1])
+    plt.show()
+    sns.set()
+    ax = sns.swarmplot(x='index', y='rmse_x', data=swarm_df)
+    ax.set(title='RMSE Distribution in x for Train Set ' + train_set)
+    plt.ylim([0, upper_rmse_limit])
+    plt.show()
+    sns.set()
+    ax = sns.swarmplot(x='index', y='rmse_y', data=swarm_df)
+    ax.set(title='RMSE Distribution in y for Train Set ' + train_set)
+    plt.ylim([0, upper_rmse_limit])
     plt.show()
 
-
-
-
-
-
+create_individual_swarms(train_set='3')
 
 
 def create_swarms(sub_list):
@@ -615,6 +509,124 @@ def create_swarms(sub_list):
     ax = sns.swarmplot(x='index', y='rmse_y', data=swarm_df)
     ax.set(title='RMSE Distribution for Different Training Sets in y')
     plt.savefig('/home/json/Desktop/peer/hbm_figures/rmse_y_comparison_scans.png')
+
+
+
+params, sub_list = load_data(min_scan=2)
+
+
+def stack_fixation_series(params, viewtype='calibration', sorted_by='mean_fd'):
+
+    """ Stacks fixations for a given viewtype for heatmap visualization
+
+    :param params: Dataframe that contains subject IDs and motion measures
+    :param viewtype: Viewing stimulus
+    :param sorted_by: Sort by mean_fd or dvars
+    :return: Heatmap for x- and y- directions for a given viewtype
+    """
+
+    monitor_width = 1680
+    monitor_height = 1050
+
+    x_stack = []
+    y_stack = []
+
+    params = params.sort_values(by=[sorted_by])
+    sub_list = params.index.values.tolist()
+
+    filename_dict = {'calibration': {'name': '/gsr0_train1_model_calibration_predictions.csv', 'num_vol': 135},
+                     'tp': {'name': '/gsr0_train1_model_tp_predictions.csv', 'num_vol': 250},
+                     'dm': {'name': '/gsr0_train1_model_dm_predictions.csv', 'num_vol': 750}}
+
+    fixations = pd.read_csv('stim_vals.csv')
+    x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2, 1)
+    y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2, 1)
+
+    for sub in sub_list:
+
+        try:
+
+            temp_df = pd.DataFrame.from_csv(resample_path + sub + filename_dict[viewtype]['name'])
+            x_series = list(temp_df['x_pred'])
+            y_series = list(temp_df['y_pred'])
+
+            if (len(x_series) == filename_dict[viewtype]['num_vol']) and (len(y_series) == filename_dict[viewtype]['num_vol']):
+
+                x_series = [x if abs(x) < monitor_width/2 + .1*monitor_width else 0 for x in x_series]
+                y_series = [x if abs(x) < monitor_height/2 + .1*monitor_height else 0 for x in y_series]
+
+                x_stack.append(x_series)
+                y_stack.append(y_series)
+
+        except:
+
+            print('Error processing subject ' + sub)
+
+    arr = np.zeros(len(x_targets))
+    arrx = np.array([-np.round(monitor_width / 2, 0) for x in arr])
+    arry = np.array([-np.round(monitor_height / 2, 0) for x in arr])
+
+    if viewtype == 'calibration':
+
+        for num in range(int(np.round(len(sub_list) * .02, 0))):
+            x_stack.append(arrx)
+            y_stack.append(arry)
+
+        for num in range(int(np.round(len(sub_list) * .02, 0))):
+            x_stack.append(x_targets)
+            y_stack.append(y_targets)
+
+    else:
+
+        avg_series_x = np.mean(x_stack)
+        avg_series_y = np.mean(y_stack)
+
+        for num in range(int(np.round(len(sub_list) * .02, 0))):
+            x_stack.append(arrx)
+            y_stack.append(arry)
+
+        for num in range(int(np.round(len(sub_list) * .02, 0))):
+            x_stack.append(avg_series_x)
+            y_stack.append(avg_series_y)
+
+    x_hm = np.stack(x_stack)
+    y_hm = np.stack(y_stack)
+
+    plot_heatmap_from_stacked_fixation_series(x_hm, viewtype, direc='x')
+    plot_heatmap_from_stacked_fixation_series(y_hm, viewtype, direc='y')
+
+    return x_hm, y_hm
+
+x_hm, y_hm = stack_fixation_series(params, viewtype='calibration', sorted_by='mean_fd')
+
+
+def plot_heatmap_from_stacked_fixation_series(fixation_series, viewtype, direc='x'):
+
+    """
+
+    :param fixation_series: Numpy array containing stacked fixation series
+    :param viewtype: Viewing stimulus
+    :param direc: x- or y- direction specification for figure title
+    :return: Heatmap of stacked fixation series
+    """
+
+    x_spacing = len(fixation_series[0])
+
+    sns.set()
+    plt.clf()
+    ax = sns.heatmap(fixation_series)
+    ax.set(xlabel='Volumes', ylabel='Subjects')
+    ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(base=np.round(x_spacing/5, 0)))
+    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(base=100))
+    plt.title('Fixation Series for ' + viewtype + 'in ' + direc)
+    plt.show()
+
+
+
+
+
 
 
 def create_corr_matrix():
