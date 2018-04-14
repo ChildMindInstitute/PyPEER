@@ -14,6 +14,11 @@ from sklearn.metrics import mean_squared_error, r2_score
 
 from datetime import datetime
 
+from sklearn import svm
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.metrics import confusion_matrix, roc_curve, auc
+
 from scipy.stats import ttest_rel
 from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
@@ -29,6 +34,8 @@ monitor_height = 1050
 eye_mask = nib.load('/data2/Projects/Jake/eye_masks/2mm_eye_corrected.nii.gz')
 eye_mask = eye_mask.get_data()
 resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
+eye_tracking_path = '/data2/HBN/EEG/data_RandID/'
+hbm_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 
 
 def load_data(min_scan=2):
@@ -54,9 +61,6 @@ def load_data(min_scan=2):
     sub_list = params.index.values.tolist()
 
     return params, sub_list
-
-
-########################################################################################################################
 
 
 def train_model(sub, train_file, test_file, gsr_status, viewtype):
@@ -361,8 +365,8 @@ def peer_hbm(sub, viewtype='calibration', gsr_status=False, train_set='1'):
         print('Error processing subject ' + str(sub))
 
 
-params, sub_list = load_data(min_scan=2)
-Parallel(n_jobs=25)(delayed(peer_hbm)(sub, viewtype='dm', gsr_status=False, train_set='1')for sub in sub_list)
+# params, sub_list = load_data(min_scan=2)
+# Parallel(n_jobs=25)(delayed(peer_hbm)(sub, viewtype='dm', gsr_status=False, train_set='1')for sub in sub_list)
 
 def create_dict_with_rmse_and_corr_values(sub_list):
 
@@ -411,7 +415,16 @@ def create_dict_with_rmse_and_corr_values(sub_list):
     return params_dict
 
 
-def create_individual_swarms(params_dict, train_set='1'):
+def create_individual_swarms(sub_list, train_set='1'):
+
+    """Create swarmplot for correlation distribution of a given training set
+
+    :param sub_list: List of subject IDs
+    :param train_set: Training set of interest
+    :return: Swarm plot for correlation distributions in x- and y- directions
+    """
+
+    params_dict = create_dict_with_rmse_and_corr_values(sub_list)
 
     train_name = [train_set for x in range(len(params_dict[train_set]['corr_x']))]
 
@@ -598,6 +611,13 @@ def plot_heatmap_from_stacked_fixation_series(fixation_series, viewtype, direc='
 
 def motion_and_correlation_linear_fit(sub_list, motion_type='mean_fd'):
 
+    """Determines simple first order linear fit between motion parameter and correlation values
+
+    :param sub_list: List of subject IDs
+    :param motion_type: mean_fd or dvars
+    :return: Scatter plot with first order linear fit
+    """
+
     motion_dict = {'mean_fd': [], 'dvars': [], 'corr_x': [], 'corr_y': []}
 
     for sub in sub_list:
@@ -647,10 +667,216 @@ def motion_and_correlation_linear_fit(sub_list, motion_type='mean_fd'):
     plt.show()
 
 
-########################################################################################################################
+def scale_x_pos(fixation):
+
+    """Scales fixation series from ET to match monitor dimensions of PEER in the x-direction
+
+    :param fixation: Fixation point
+    :return: Scaled fixation point
+    """
+
+    return (fixation - 400) * (1680 / 800)
+
+
+def scale_y_pos(fixation):
+
+    """Scales fixation series from ET to match monitor dimensions of PEER in the y-direction
+
+    :param fixation: Fixation point
+    :return: Scaled fixation point
+    """
+
+    return -((fixation - 300) * (1050 / 600))
+
+
+def et_samples_to_pandas(sub):
+
+    """Converts raw text output from eye-tracker to pandas dataframe
+
+    :param sub: Subject ID
+    :return: Dataframe with eye-tracking raw samples
+    """
+
+    sub = sub.strip('sub-')
+
+    with open(eye_tracking_path + sub + '/Eyetracking/txt/' + sub + '_Video4_Samples.txt') as f:
+        reader = csv.reader(f, delimiter='\t')
+        content = list(reader)[38:]
+
+        headers = content[0]
+
+        df = pd.DataFrame(content[1:], columns=headers, dtype='float')
+
+    msg_time = list(df[df.Type == 'MSG'].Time)
+
+    start_time = float(msg_time[2])
+
+    df_msg_removed = df[(df.Time > start_time)][['Time',
+                                                 'R POR X [px]',
+                                                 'R POR Y [px]']]
+
+    df_msg_removed.update(df_msg_removed['R POR X [px]'].apply(scale_x_pos))
+    df_msg_removed.update(df_msg_removed['R POR Y [px]'].apply(scale_y_pos))
+
+    return df_msg_removed, start_time
+
+
+def average_fixations_per_tr(df, start_time):
+
+    """Averages fixation series over each TR block
+
+    :param df: Dataframe containing raw data from eye-tracker
+    :param start_time: Time when eye-tracking data for The Present begins
+    :return: Dataframe containing averaged fixation series for each TR block
+    """
+
+    mean_fixations = []
+
+    movie_volume_count = 250
+    movie_TR = 800  # in milliseconds
+
+    for num in range(movie_volume_count):
+
+        bin0 = start_time + num * 1000 * movie_TR
+        bin1 = start_time + (num + 1) * 1000 * movie_TR
+        df_temp = df[(df.Time >= bin0) & (df.Time <= bin1)]
+
+        x_pos = np.mean(df_temp['R POR X [px]'])
+        y_pos = np.mean(df_temp['R POR Y [px]'])
+
+        mean_fixations.append([x_pos, y_pos])
+
+    df = pd.DataFrame(mean_fixations, columns=(['x_pred', 'y_pred']))
+
+    return df
+
+
+def save_mean_fixations(mean_df):
+
+    """Saves averaged eye-tracker predictions to csv
+
+    :param mean_df: Dataframe containing averaged fixation series for each TR block
+    :return: Saves predictions to csv
+    """
+
+    mean_df.to_csv(hbm_path + sub + '/et_device_pred.csv')
+
+
+def create_eye_tracker_fixation_series(sub):
+
+    """Creates and saves eye tracker fixation series from raw eye-tracker data
+
+    :param sub: Subject ID
+    :return: CSV containing averaged fixation series from raw eye-tracking data
+    """
+
+    try:
+
+        if os.path.exists('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv'):
+
+            print('ET fixation series already saved for ' + sub)
+
+        else:
+
+            df_output, start_time = et_samples_to_pandas(sub)
+            mean_df = average_fixations_per_tr(df_output, start_time)
+            save_mean_fixations(mean_df)
+            print('Completed processing ' + sub)
+
+    except:
+
+        print('Error processing ' + sub)
+
+
+def create_sub_list_with_et_and_peer(full_list):
+
+    """Creates a list of subjects with both ET and PEER predictions
+
+    :param full_list: List of subject IDs containing all subjects with at least 2/3 valid calibration scans
+    :return: Subject list with both ET and PEER predictions
+    """
+
+    et_list = []
+
+    for sub in full_list:
+
+        if (os.path.exists('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv')) and \
+                (os.path.exists('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_tp_predictions.csv')):
+
+            et_list.append(sub)
+
+    return et_list
+
+
+def compare_et_and_peer(sub, plot=False):
+
+    et_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv')
+
+    peer_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/no_gsr_train1_tp_pred.csv')
+
+    corr_val_x = pearsonr(et_df['x_pred'], peer_df['x_pred'])[0]
+    corr_val_y = pearsonr(et_df['y_pred'], peer_df['y_pred'])[0]
+
+    if plot:
+
+        plt.figure(figsize=(10,5))
+        plt.plot(np.linspace(0, 249, 250), et_df['x_pred'], 'r-', label='eye-tracker')
+        plt.plot(np.linspace(0, 249, 250), peer_df['x_pred'], 'b-', label='PEER')
+        plt.title(sub + ' with correlation value: ' + str(corr_val_x)[:5])
+        plt.xlabel('TR')
+        plt.ylabel('Fixation location (px)')
+        plt.legend()
+        plt.show()
+
+        plt.figure(figsize=(10,5))
+        plt.plot(np.linspace(0, 249, 250), et_df['y_pred'], 'r-', label='eye-tracker')
+        plt.plot(np.linspace(0, 249, 250), peer_df['y_pred'], 'b-', label='PEER')
+        plt.title(sub + ' with correlation value: ' + str(corr_val_y)[:5])
+        plt.xlabel('TR')
+        plt.ylabel('Fixation location (px)')
+        plt.legend()
+        plt.show()
+
+    return corr_val_x, corr_val_y
+
+
+def create_swarm_plot_for_et_and_peer(sub_list):
+
+    corr_et_peer_x = []
+    corr_et_peer_y = []
+
+    for sub in sub_list:
+
+        try:
+
+            corr_val_x, corr_val_y = compare_et_and_peer(sub, plot=False)
+            corr_et_peer_x.append(corr_val_x)
+            corr_et_peer_y.append(corr_val_y)
+
+        except:
+
+            print('Subject has TP PEER predictions missing')
+
+    index_vals = ['Peer vs. ET' for x in range(len(corr_et_peer_x))]
+
+    swarm_dict = {'index': index_vals, 'corr_x': corr_et_peer_x, 'corr_y': corr_et_peer_y}
+
+    swarm_df = pd.DataFrame.from_dict(swarm_dict)
+
+    sns.set()
+    ax = sns.swarmplot(x='index', y='corr_x', data=swarm_df)
+    ax.set(title='Distribution of Correlation Values for ET vs. PEER Fixation Series in x')
+    plt.show()
+
+    sns.set()
+    ax = sns.swarmplot(x='index', y='corr_y', data=swarm_df)
+    ax.set(title='Distribution of Correlation Values for ET vs. PEER Fixation Series in y')
+    plt.show()
+
+    return corr_et_peer_x, corr_et_peer_y
+
 
 def create_corr_matrix(sub_list):
-
     corr_matrix_tp_x = []
     corr_matrix_dm_x = []
     corr_matrix_tp_y = []
@@ -673,7 +899,6 @@ def create_corr_matrix(sub_list):
             dm_y = np.array(pd.read_csv(resample_path + sub + '/gsr0_train1_model_dm_predictions.csv')['y_pred'][:250])
 
             if (len(tp_x) == expected_value) & (len(dm_x) == expected_value):
-
                 corr_matrix_tp_x.append(tp_x)
                 corr_matrix_dm_x.append(tp_y)
                 corr_matrix_tp_y.append(dm_x)
@@ -691,10 +916,12 @@ def create_corr_matrix(sub_list):
 
     return corr_matrix_x, corr_matrix_y, corr_matrix_tp_x, corr_matrix_tp_y, corr_matrix_dm_x, corr_matrix_dm_y
 
-corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix()
-pcolor(corr_matrix_x)
-colorbar()
-show()
+
+def plot_correlation_matrix(correlation_matrix, dir_='x'):
+    pcolor(correlation_matrix)
+    plt.title('Correlation Matrix for TP and DM in ' + dir_)
+    colorbar()
+    show()
 
 
 def separate_grouping(in_mat):
@@ -725,36 +952,178 @@ def separate_grouping(in_mat):
     return wi_ss, wo_ss
 
 
-wi_ss_x, wo_ss_x = separate_grouping(corr_matrix_x)
-wi_ss_y, wo_ss_y = separate_grouping(corr_matrix_y)
+def create_df_containing_within_without_separation(matrix_x, matrix_y):
 
-wi_label = ['Within' for x in range(len(wi_ss_x))]
-wo_label = ['Without' for x in range(len(wo_ss_x))]
+    wi_ss_x, wo_ss_x = separate_grouping(matrix_x)
+    wi_ss_y, wo_ss_y = separate_grouping(matrix_y)
 
-df_dict = {'x': np.concatenate([wi_ss_x, wo_ss_x]), 'y': np.concatenate([wi_ss_y, wo_ss_y]),
-           'within_without_group': np.concatenate([wi_label, wo_label]),
-           'x_ax': ['Naturalistic Viewing' for x in range(len(wi_ss_x) + len(wo_ss_x))]}
+    wi_label = ['Within' for x in range(len(wi_ss_x))]
+    wo_label = ['Between' for x in range(len(wo_ss_x))]
 
-df = pd.DataFrame.from_dict(df_dict)
+    df_dict = {'x': np.concatenate([wi_ss_x, wo_ss_x]), 'y': np.concatenate([wi_ss_y, wo_ss_y]),
+               '': np.concatenate([wi_label, wo_label]),
+               'x_ax': ['Naturalistic Viewing' for x in range(len(wi_ss_x) + len(wo_ss_x))]}
 
-sns.set()
-plt.title('Within and Between Movie Correlation Discriminability in y')
-sns.violinplot(x='x_ax', y='y', hue='within_without_group', data=df, split=True,
-               inner='quart', palette={'Within': 'b', 'Without': 'y'})
-plt.savefig('/home/json/Desktop/peer/hbm_figures/within_between_y.png', dpi=600)
+    df = pd.DataFrame.from_dict(df_dict)
 
+    return df, wi_ss_x, wo_ss_x, wi_ss_y, wo_ss_y
+
+# within_without_df, wi_ss_x, wo_ss_x, wi_ss_y, wo_ss_y = create_df_containing_within_without_separation(corr_matrix_x, corr_matrix_y)
+
+def plot_within_without_groups(df, dir_='x'):
+
+    sns.set()
+    plt.title('Within and Between Movie Correlation Discriminability in ' + dir_)
+    sns.violinplot(x='x_ax', y=dir_, hue='', data=df, split=True,
+                   inner='quart', palette={'Within': 'b', 'Between': 'y'})
+    plt.show()
+
+# plot_within_without_groups(within_without_df, dir_='x')
 
 def grouping_ss(within, without):
 
-    wi_mean = np.mean(within)
-    wo_mean = np.mean(without)
-    wi_stdv = np.std(within)
-    wo_stdv = np.std(without)
+    wi_mean = np.nanmean(within)
+    wo_mean = np.nanmean(without)
+    wi_stdv = np.nanstd(within)
+    wo_stdv = np.nanstd(without)
 
     return wi_mean, wo_mean, wi_stdv, wo_stdv
 
-wi_mean_x, wo_mean_x, wi_stdv_x, wo_stdv_x = grouping_ss(wi_ss_x, wo_ss_x)
-wi_mean_y, wo_mean_y, wi_stdv_y, wo_stdv_y = grouping_ss(wi_ss_y, wo_ss_y)
+# wi_mean_x, wo_mean_x, wi_stdv_x, wo_stdv_x = grouping_ss(wi_ss_x, wo_ss_x)
+# wi_mean_y, wo_mean_y, wi_stdv_y, wo_stdv_y = grouping_ss(wi_ss_y, wo_ss_y)
+
+def bin_class(sub_list, tt_split=.5):
+
+    # Create all dm and tp vectors with targets
+    # Divide into training and testing sets
+
+    corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix(sub_list)
+
+    svm_dict = {}
+
+    for item in range(len(tp_x[0])):
+
+        svm_dict[item] = []
+
+    for fix in range(len(tp_x[0])):
+
+        temp_list = []
+
+        for item in range(len(tp_x)):
+
+            temp_list.append(tp_x[item][fix])
+
+        svm_dict[fix] = temp_list
+
+    for fix in range(len(dm_x[0])):
+
+        temp_list = []
+
+        for item in range(len(dm_x)):
+
+            temp_list.append(dm_x[item][fix])
+
+        svm_dict[fix] = svm_dict[fix] + temp_list
+
+    tp_labels = [0 for x in range(len(tp_x))]
+    dm_labels = [1 for x in range(len(dm_x))]
+    label_list = tp_labels + dm_labels
+
+    svm_dict['labels'] = label_list
+
+    df_x = pd.DataFrame.from_dict(svm_dict)
+
+    svm_dict = {}
+
+    for item in range(len(tp_y[0])):
+
+        svm_dict[item] = []
+
+    for fix in range(len(tp_y[0])):
+
+        temp_list = []
+
+        for item in range(len(tp_y)):
+
+            temp_list.append(tp_y[item][fix])
+
+        svm_dict[fix] = temp_list
+
+    for fix in range(len(dm_y[0])):
+
+        temp_list = []
+
+        for item in range(len(dm_y)):
+
+            temp_list.append(dm_y[item][fix])
+
+        svm_dict[fix] = svm_dict[fix] + temp_list
+
+    tp_labels = [0 for x in range(len(tp_y))]
+    dm_labels = [1 for x in range(len(dm_y))]
+    label_list = tp_labels + dm_labels
+
+    svm_dict['labels'] = label_list
+
+    df_y = pd.DataFrame.from_dict(svm_dict)
+
+    train_set_x, test_set_x = train_test_split(df_x, test_size=tt_split)
+
+    train_data_x = train_set_x.drop(['labels'], axis=1)
+    test_data_x = test_set_x.drop(['labels'], axis=1)
+    train_targets_x = train_set_x[['labels']]
+    test_targets_x = test_set_x[['labels']]
+
+    train_set_y, test_set_y = train_test_split(df_y, test_size=tt_split)
+
+    train_data_y = train_set_y.drop(['labels'], axis=1)
+    test_data_y = test_set_y.drop(['labels'], axis=1)
+    train_targets_y = train_set_y[['labels']]
+    test_targets_y = test_set_y[['labels']]
+
+    clfx = svm.SVC(C=100, tol=.0001, kernel='linear', verbose=1, probability=True)
+    clfy = svm.SVC(C=100, tol=.0001, kernel='linear', verbose=1, probability=True)
+
+    clfx.fit(train_data_x, train_targets_x)
+    predictions_x = clfx.predict(test_data_x)
+    clfy.fit(train_data_y, train_targets_y)
+    predictions_y = clfy.predict(test_data_y)\
+
+    print('Confusion Matrix in x')
+    print(confusion_matrix(predictions_x, test_targets_x))
+    print('Confusion Matrix in y')
+    print(confusion_matrix(predictions_y, test_targets_y))
+
+    probas_x = clfx.predict_proba(test_data_x)
+    probas_y = clfy.predict_proba(test_data_y)
+
+    fpr_x, tpr_x, thresholds = roc_curve(test_targets_x, probas_x[:, 1])
+    roc_auc_x = auc(fpr_x, tpr_x)
+
+    fpr_y, tpr_y, thresholds = roc_curve(test_targets_y, probas_y[:, 1])
+    roc_auc_y = auc(fpr_y, tpr_y)
+
+    plt.figure()
+    plt.plot(fpr_x, tpr_x, label='AUROC = ' + str(roc_auc_x)[:6])
+    plt.plot([0, 1], [0, 1], color='k', linestyle='--')
+    plt.title('ROC Curve for SVM in x')
+    plt.xlabel('FPR')
+    plt.ylabel('TPR')
+    plt.legend()
+    plt.show()
+
+    plt.figure()
+    plt.plot(fpr_y, tpr_y, label='AUROC = ' + str(roc_auc_y)[:6])
+    plt.plot([0, 1], [0, 1], color='k', linestyle='--')
+    plt.title('ROC Curve for SVM in y')
+    plt.xlabel('FPR')
+    plt.ylabel('TPR')
+    plt.legend()
+    plt.show()
+
+########################################################################################################################
+
+
 
 
 def extract_corr_values():
@@ -807,95 +1176,8 @@ def threshold_proportion(threshold=.50, type='gsr'):
     print(x_fract, y_fract)
 
 
-
-# for mm in ['mean_fd', 'dvars']:
-#     for dim in ['corr_x', 'corr_y']:
-#         print(mm, dim)
-#         motion_linear_regression(motion=mm, dimension=dim)
-#
-#
-#
-#
-# x_dict, y_dict = extract_corr_values()
-#
-# x_gsr = ttest_rel(x_dict['gsr'], x_dict['no-gsr'])
-# x_scan = ttest_rel(x_dict['gsr'], x_dict['two_scan'])
-# y_gsr = ttest_rel(y_dict['gsr'], y_dict['no-gsr'])
-# y_scan = ttest_rel(y_dict['gsr'], y_dict['two_scan'])
-#
-# plt.hist(x_dict['gsr'], bins=np.arange(0, 1, .05))
-# plt.show()
-#
-# from scipy.stats import wilcoxon
-#
-# x_gsr = wilcoxon(x_dict['gsr'], x_dict['no-gsr'])
-# x_scan = wilcoxon(x_dict['gsr'], x_dict['two_scan'])
-# y_gsr = wilcoxon(y_dict['gsr'], y_dict['no-gsr'])
-# y_scan = wilcoxon(y_dict['gsr'], y_dict['two_scan'])
-#
-# import pyvttbl as pt
-#
-# x_values = np.concatenate([np.array(x_dict['gsr']), np.array(x_dict['no-gsr']), np.array(x_dict['two_scan'])]).tolist()
-# y_values = np.concatenate([np.array(y_dict['gsr']), np.array(y_dict['no-gsr']), np.array(y_dict['two_scan'])]).tolist()
-# gsr_status = np.concatenate([np.ones(len(x_dict['gsr'])), np.ones(len(x_dict['gsr'])), np.zeros(len(x_dict['gsr']))]).tolist()
-# training_set = np.concatenate([np.ones(len(x_dict['gsr'])), np.zeros(len(x_dict['gsr'])), np.ones(len(x_dict['gsr']))]).tolist()
-#
-# anova_dict = {'x_corr': x_values, 'y_corr': y_values, 'gsr_status': gsr_status, 'training_set': training_set}
-#
-# df = pd.DataFrame.from_dict(anova_dict)
-#
-# aov = df.anova1way('x_corr', 'gsr_status')
-# print(aov)
-
 # #############################################################################
 # SVM for binary classification
-
-def bin_class():
-
-    from sklearn import svm
-    from sklearn.metrics import accuracy_score
-    from sklearn.model_selection import GridSearchCV
-    from sklearn.metrics import confusion_matrix
-
-    # Create all dm and tp vectors with targets
-    # Divide into training and testing sets
-
-    corr_matrix_x, corr_matrix_y, tp_x, tp_y, dm_x, dm_y = create_corr_matrix()
-
-    dm_targets = ['dm' for x in range(len(dm_x))]
-    tp_targets = ['tp' for x in range(len(tp_x))]
-
-    tt_split = .50
-    tt_split_list = np.linspace(.1, .9, num=9)
-    split_val = int(np.round(tt_split * len(tp_x), 0))
-    split_val_list = [int(np.round(tt_split * len(tp_x), 0)) for tt_split in tt_split_list]
-
-    temp_analysis_x = []
-    temp_analysis_y = []
-
-    for split_val in [split_val]:
-
-        train_data_x = np.concatenate([tp_x[:split_val], dm_x[:split_val]])
-        test_data_x = np.concatenate([tp_x[split_val:], dm_x[split_val:]])
-        train_data_y = np.concatenate([tp_y[:split_val], dm_y[:split_val]])
-        test_data_y = np.concatenate([tp_y[split_val:], dm_y[split_val:]])
-        train_targets = np.concatenate([tp_targets[:split_val], dm_targets[:split_val]])
-        test_targets = np.concatenate([tp_targets[split_val:], dm_targets[split_val:]])
-
-        clfx = svm.SVC(C=100, tol=.0001, kernel='linear', verbose=0)
-        clfy = svm.SVC(C=100, tol=.0001, kernel='linear', verbose=0)
-
-        clfx.fit(train_data_x, train_targets)
-        predictions_x = clfx.predict(test_data_x)
-        clfy.fit(train_data_y, train_targets)
-        predictions_y = clfy.predict(test_data_y)
-
-        temp_analysis_x.append(accuracy_score(predictions_x, test_targets))
-        temp_analysis_y.append(accuracy_score(predictions_y, test_targets))
-
-        print(confusion_matrix(predictions_x, test_targets))
-        print(confusion_matrix(predictions_y, test_targets))
-
 
 # #############################################################################
 # Generalizable classifier
@@ -1465,124 +1747,6 @@ for sub in sub_list:
 
 #################################### Eye Tracking Analysis
 
-eye_tracking_path = '/data2/HBN/EEG/data_RandID/'
-hbm_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
-
-
-def scale_x_pos(fixation):
-
-    return (fixation - 400) * (1680 / 800)
-
-
-def scale_y_pos(fixation):
-
-    return (fixation - 300) * (1050 / 600)
-
-
-def et_samples_to_pandas(sub):
-
-    sub = sub.strip('sub-')
-
-    with open(eye_tracking_path + sub + '/Eyetracking/txt/' + sub + '_Video4_Samples.txt') as f:
-        reader = csv.reader(f, delimiter='\t')
-        content = list(reader)[38:]
-
-        headers = content[0]
-
-        df = pd.DataFrame(content[1:], columns=headers, dtype='float')
-
-    msg_time = list(df[df.Type == 'MSG'].Time)
-
-    start_time = float(msg_time[2])
-    end_time = float(msg_time[3])
-
-    df_msg_removed = df[(df.Time > start_time) & (df.Time < end_time)][['Time',
-                                                                        'R POR X [px]',
-                                                                        'R POR Y [px]']]
-
-    df_msg_removed.update(df_msg_removed['R POR X [px]'].apply(scale_x_pos))
-    df_msg_removed.update(df_msg_removed['R POR Y [px]'].apply(scale_y_pos))
-
-    return df_msg_removed, start_time, end_time
-
-
-def average_fixations_per_tr(df, start_time, end_time):
-
-    mean_fixations = []
-
-    movie_volume_count = 250
-    movie_TR = 800  # in milliseconds
-
-    for num in range(movie_volume_count):
-
-        bin0 = start_time + num * 1000 * movie_TR
-        bin1 = start_time + (num + 1) * 1000 * movie_TR
-        df_temp = df[(df.Time >= bin0) & (df.Time <= bin1)]
-
-        x_pos = np.mean(df_temp['R POR X [px]'])
-        y_pos = np.mean(df_temp['R POR Y [px]'])
-
-        mean_fixations.append([x_pos, y_pos])
-
-    df = pd.DataFrame(mean_fixations, columns=(['x_pred', 'y_pred']))
-
-    return df
-
-
-def save_mean_fixations(mean_df):
-
-    mean_df.to_csv(hbm_path + sub + '/et_device_pred.csv')
-
-def create_eye_tracker_fixation_series(sub):
-
-    try:
-
-        if os.path.exists(eye_tracking_path + sub.strip('sub-') + '/Eyetracking/txt/' + sub.strip('sub-') + '_Video4_Samples.txt'):
-
-            print('ET fixation series already saved for ' + sub)
-
-        else:
-
-            df_output, start_time, end_time = et_samples_to_pandas(sub)
-            mean_df = average_fixations_per_tr(df_output, start_time, end_time)
-            save_mean_fixations(mean_df)
-            print('Completed processing ' + sub)
-
-    except:
-
-        print('Error processing ' + sub)
-
-
-def compare_et_and_peer(sub, plot=False):
-
-    et_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv')
-
-    peer_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/no_gsr_train1_tp_pred.csv')
-
-    corr_val_x = pearsonr(et_df['x_pred'], peer_df['x_pred'])
-    corr_val_y = pearsonr(et_df['y_pred'], peer_df['y_pred'])
-
-    if plot:
-
-        plt.figure(figsize=(10,5))
-        plt.plot(np.linspace(0, 249, 250), et_df['x_pred'], 'r-', label='eye-tracker')
-        plt.plot(np.linspace(0, 249, 250), peer_df['x_pred'], 'b-', label='PEER')
-        plt.title(sub + ' with correlation value: ' + str(corr_val_x)[:5])
-        plt.xlabel('TR')
-        plt.ylabel('Fixation location (px)')
-        plt.legend()
-        plt.show()
-
-        plt.figure(figsize=(10,5))
-        plt.plot(np.linspace(0, 249, 250), et_df['y_pred'], 'r-', label='eye-tracker')
-        plt.plot(np.linspace(0, 249, 250), peer_df['y_pred'], 'b-', label='PEER')
-        plt.title(sub + ' with correlation value: ' + str(corr_val_y)[:5])
-        plt.xlabel('TR')
-        plt.ylabel('Fixation location (px)')
-        plt.legend()
-        plt.show()
-
-    return corr_val_x, corr_val_y
 
 # sample_list_with_both_et_and_peer = ['sub-5743805', 'sub-5783223']
 # sub_list_with_et_and_peer
