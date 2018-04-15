@@ -1156,24 +1156,8 @@ for vol in range(len(x_hm_without_end[0])):
 
 for vol in range(len(x_hm_without_end[0])):
 
-    fixation_bins = {}
-
-    for bin1 in range(int(monitor_width / 30)):
-
-        fix_dict = {}
-
-        for bin2 in range(int(monitor_height / 30)):
-
-            fix_dict[str(bin2)] = []
-
-        fixation_bins[str(bin1)] = fix_dict
-
-    fixation_bins_vols[str(vol)] = fixation_bins
-
-
-
-
-
+    fixation_bins_vols[str(vol)] = {str(bin1): {str(bin2): [] for bin2 in range(int(monitor_height / 30))} \
+                                    for bin1 in range(int(monitor_width / 30))}
 
 fixation_series = {}
 
@@ -1217,19 +1201,28 @@ for vol in range(len(x_hm_without_end[0])):
     out_of_bounds[vol] = out_of_bounds_count
     expected_count = present_in_vol + out_of_bounds_count
 
-    sum_stats_per_vol[str(vol)] = {'total count': total_count, 'expected count': expected_count,
-                                   'out of bounds count': out_of_bounds_count, 'fixation count': present_in_vol}
-
+    sum_stats_per_vol[str(vol)] = {'total count': int(total_count), 'expected count': int(expected_count),
+                                   'out of bounds count': int(out_of_bounds_count), 'fixation count': int(present_in_vol)}
 
 for vol in range(len(x_hm_without_end[0])):
 
-    for bin1 in fixation_bins.keys():
+    max_diff = 1 - uniform_val + sum_stats_per_vol[str(vol)]['fixation count'] * uniform_val
 
-        for bin2 in fixation_bins['0'].keys():
+    for bin1 in fixation_bins_vols[str(vol)].keys():
 
-            fixation_bins_vols[str(vol)][bin1][bin2] = abs(float(len(fixation_bins[bin1][bin2]) /\
-                                                                 (sum_stats_per_vol[str(vol)]['fixation count'])) - \
-                                                           uniform_val)
+        for bin2 in fixation_bins_vols[str(vol)][bin1].keys():
+
+            # ERROR SOURCE
+
+            fixation_bins_vols[str(vol)][bin1][bin2] = (len(fixation_bins_vols[str(vol)][bin1][bin2]) / sum_stats_per_vol[str(vol)]['fixation count'])
+
+
+for vol in fixation_bins_vols.keys():
+    prop_validation = 0
+    for bin1 in fixation_bins_vols[vol].keys():
+        for bin2 in fixation_bins_vols[vol][bin1].keys():
+            prop_validation += fixation_bins_vols[vol][bin1][bin2]
+    print(vol, sum_stats_per_vol[str(vol)]['fixation count'], prop_validation)
 
 diversity_score_dict = {}
 
@@ -1248,7 +1241,7 @@ for vol in range(len(x_hm_without_end[0])):
 div_scores_list = list(diversity_score_dict.values())
 
 plt.figure()
-plt.plot(np.linspace(0, len(div_scores_list)-5, len(div_scores_list)-5), div_scores_list[5:])
+plt.plot(np.linspace(0, len(div_scores_list), len(div_scores_list)), div_scores_list)
 plt.show()
 
 
