@@ -20,7 +20,7 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import confusion_matrix, roc_curve, auc
 
 from scipy.stats import ttest_rel
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, percentileofscore
 from sklearn.metrics import mean_squared_error
 
 from joblib import Parallel, delayed
@@ -880,6 +880,7 @@ def create_swarm_plot_for_et_and_peer(sub_list):
 
 
 def create_corr_matrix(sub_list):
+
     corr_matrix_tp_x = []
     corr_matrix_dm_x = []
     corr_matrix_tp_y = []
@@ -911,11 +912,24 @@ def create_corr_matrix(sub_list):
 
             continue
 
-    x_matrix = np.concatenate([corr_matrix_tp_x, corr_matrix_dm_x])
-    y_matrix = np.concatenate([corr_matrix_tp_y, corr_matrix_dm_y])
+    corr_matrix_x = np.corrcoef(corr_matrix_tp_x, corr_matrix_dm_x)
+    corr_matrix_y = np.corrcoef(corr_matrix_tp_y, corr_matrix_dm_y)
 
-    corr_matrix_x = np.corrcoef(x_matrix)
-    corr_matrix_y = np.corrcoef(y_matrix)
+    # Correction for Visualization of Correlation Matrix - OPTIONAL
+
+    # for input_matrix in [corr_matrix_x, corr_matrix_y]:
+    #
+    #     anti_corr_list = []
+    #     corr_list = []
+    #
+    #     for item1 in range(len(input_matrix)):
+    #         for item2 in range(len(input_matrix[0])):
+    #             if input_matrix[item1][item2] < 0:
+    #                 anti_corr_list.append(input_matrix[item1][item2])
+    #                 input_matrix[item1][item2] = 0
+    #             else:
+    #                 corr_list.append(input_matrix[item1][item2])
+    #     print(len(anti_corr_list), len(corr_list))
 
     return corr_matrix_x, corr_matrix_y, corr_matrix_tp_x, corr_matrix_tp_y, corr_matrix_dm_x, corr_matrix_dm_y
 
@@ -925,6 +939,9 @@ def plot_correlation_matrix(correlation_matrix, dir_='x'):
     plt.title('Correlation Matrix for TP and DM in ' + dir_)
     colorbar()
     show()
+
+# corr_matrix_x, corr_matrix_y, corr_matrix_tp_x, corr_matrix_tp_y, corr_matrix_dm_x, corr_matrix_dm_y = create_corr_matrix(sub_list)
+# plot_correlation_matrix(corr_matrix_x, dir_='x')
 
 
 def separate_grouping(in_mat):
@@ -994,6 +1011,20 @@ def grouping_ss(within, without):
 
 # wi_mean_x, wo_mean_x, wi_stdv_x, wo_stdv_x = grouping_ss(wi_ss_x, wo_ss_x)
 # wi_mean_y, wo_mean_y, wi_stdv_y, wo_stdv_y = grouping_ss(wi_ss_y, wo_ss_y)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def bin_class(sub_list, tt_split=.5):
 
@@ -1133,116 +1164,158 @@ def bin_class(sub_list, tt_split=.5):
 # 3)o calculate absolute deviation between uniform and fixation
 # 4)o compare diversity scores from ET and PEER
 
-def diversity_score_analysis():
 
-monitor_width = 1680
-monitor_height = 1050
+def diversity_score_analysis_peer(plot_status=True):
 
-uniform_val = float(1 / ((monitor_width / 30) * (monitor_height / 30)))
+    monitor_width = 1680
+    monitor_height = 1050
 
-params, sub_list = load_data(min_scan=2)
+    uniform_val = float(1 / ((monitor_width / 30) * (monitor_height / 30)))
 
-x_hm, y_hm, x_hm_without_end, y_hm_without_end = stack_fixation_series(params, viewtype='tp', sorted_by='mean_fd')
+    params, sub_list = load_data(min_scan=2)
 
+    x_hm, y_hm, x_hm_without_end, y_hm_without_end = stack_fixation_series(params, viewtype='tp', sorted_by='mean_fd')
 
+    fixation_bins_vols = {}
 
+    for vol in range(len(x_hm_without_end[0])):
 
+        fixation_bins_vols[str(vol)] = []
 
-fixation_bins_vols = {}
+    for vol in range(len(x_hm_without_end[0])):
 
-for vol in range(len(x_hm_without_end[0])):
+        fixation_bins_vols[str(vol)] = {str(bin1): {str(bin2): [] for bin2 in range(int(monitor_height / 30))} \
+                                        for bin1 in range(int(monitor_width / 30))}
 
-    fixation_bins_vols[str(vol)] = []
+    fixation_series = {}
 
-for vol in range(len(x_hm_without_end[0])):
+    for vol in range(len(x_hm_without_end[0])):
 
-    fixation_bins_vols[str(vol)] = {str(bin1): {str(bin2): [] for bin2 in range(int(monitor_height / 30))} \
-                                    for bin1 in range(int(monitor_width / 30))}
+        fixation_series[vol] = []
 
-fixation_series = {}
+    for vol in range(len(x_hm_without_end[0])):
 
-for vol in range(len(x_hm_without_end[0])):
+        for sub in range(len(x_hm_without_end)):
 
-    fixation_series[vol] = []
+            fixation_series[vol].append([x_hm_without_end[sub][vol], y_hm_without_end[sub][vol]])
 
-for vol in range(len(x_hm_without_end[0])):
+    out_of_bounds = {}
+    sum_stats_per_vol = {}
 
-    for sub in range(len(x_hm_without_end)):
+    for vol in range(len(x_hm_without_end[0])):
 
-        fixation_series[vol].append([x_hm_without_end[sub][vol], y_hm_without_end[sub][vol]])
+        out_of_bounds_count = 0
+        out_of_bounds[vol] = []
 
-out_of_bounds = {}
-sum_stats_per_vol = {}
+        total_count = 0
+        present_in_vol = 0
 
-for vol in range(len(x_hm_without_end[0])):
+        for sub in range(len(x_hm_without_end)):
 
-    out_of_bounds_count = 0
-    out_of_bounds[vol] = []
+            x_bin = str(int(np.floor((x_hm_without_end[sub][vol] + 840)/30)))
+            y_bin = str(int(np.floor((y_hm_without_end[sub][vol] + 525)/30)))
 
-    total_count = 0
-    present_in_vol = 0
+            if (int(x_bin) < 0) or (int(x_bin) > 55) or (int(y_bin) < 0) or (int(y_bin) > 34):
 
-    for sub in range(len(x_hm_without_end)):
+                out_of_bounds_count += 1
+                total_count += 1
 
-        x_bin = str(int(np.floor((x_hm_without_end[sub][vol] + 840)/30)))
-        y_bin = str(int(np.floor((y_hm_without_end[sub][vol] + 525)/30)))
+            else:
 
-        if (int(x_bin) < 0) or (int(x_bin) > 55) or (int(y_bin) < 0) or (int(y_bin) > 34):
+                fixation_bins_vols[str(vol)][x_bin][y_bin].append('fixation')
+                total_count += 1
+                present_in_vol += 1
 
-            out_of_bounds_count += 1
-            total_count += 1
+        out_of_bounds[vol] = out_of_bounds_count
+        expected_count = present_in_vol + out_of_bounds_count
 
-        else:
+        sum_stats_per_vol[str(vol)] = {'total count': int(total_count), 'expected count': int(expected_count),
+                                       'out of bounds count': int(out_of_bounds_count), 'fixation count': int(present_in_vol)}
 
-            fixation_bins_vols[str(vol)][x_bin][y_bin].append('fixation')
-            total_count += 1
-            present_in_vol += 1
+    for vol in range(len(x_hm_without_end[0])):
 
-    out_of_bounds[vol] = out_of_bounds_count
-    expected_count = present_in_vol + out_of_bounds_count
+        for bin1 in fixation_bins_vols[str(vol)].keys():
 
-    sum_stats_per_vol[str(vol)] = {'total count': int(total_count), 'expected count': int(expected_count),
-                                   'out of bounds count': int(out_of_bounds_count), 'fixation count': int(present_in_vol)}
+            for bin2 in fixation_bins_vols[str(vol)][bin1].keys():
 
-for vol in range(len(x_hm_without_end[0])):
-
-    max_diff = 1 - uniform_val + sum_stats_per_vol[str(vol)]['fixation count'] * uniform_val
-
-    for bin1 in fixation_bins_vols[str(vol)].keys():
-
-        for bin2 in fixation_bins_vols[str(vol)][bin1].keys():
-
-            # ERROR SOURCE
-
-            fixation_bins_vols[str(vol)][bin1][bin2] = (len(fixation_bins_vols[str(vol)][bin1][bin2]) / sum_stats_per_vol[str(vol)]['fixation count'])
+                fixation_bins_vols[str(vol)][bin1][bin2] = abs((len(fixation_bins_vols[str(vol)][bin1][bin2]) / sum_stats_per_vol[str(vol)]['fixation count']) - uniform_val)
 
 
-for vol in fixation_bins_vols.keys():
-    prop_validation = 0
-    for bin1 in fixation_bins_vols[vol].keys():
-        for bin2 in fixation_bins_vols[vol][bin1].keys():
-            prop_validation += fixation_bins_vols[vol][bin1][bin2]
-    print(vol, sum_stats_per_vol[str(vol)]['fixation count'], prop_validation)
+    for vol in fixation_bins_vols.keys():
+        prop_validation = 0
+        for bin1 in fixation_bins_vols[vol].keys():
+            for bin2 in fixation_bins_vols[vol][bin1].keys():
+                prop_validation += fixation_bins_vols[vol][bin1][bin2]
 
-diversity_score_dict = {}
+    diversity_score_dict = {}
 
-for vol in range(len(x_hm_without_end[0])):
+    for vol in range(len(x_hm_without_end[0])):
 
-    count_val = 0
+        count_val = 0
 
-    for bin1 in fixation_bins_vols[str(vol)].keys():
+        for bin1 in fixation_bins_vols[str(vol)].keys():
 
-        for bin2 in fixation_bins_vols[str(vol)]['0'].keys():
+            for bin2 in fixation_bins_vols[str(vol)]['0'].keys():
 
-            count_val += fixation_bins_vols[str(vol)][bin1][bin2]
+                count_val += fixation_bins_vols[str(vol)][bin1][bin2]
 
-    diversity_score_dict[str(vol)] = count_val - abs((uniform_val - 1/sum_stats_per_vol[str(vol)]['fixation count']))*397
+        diversity_score_dict[str(vol)] = count_val
 
-div_scores_list = list(diversity_score_dict.values())
+    div_scores_list = list(diversity_score_dict.values())
 
-plt.figure()
-plt.plot(np.linspace(0, len(div_scores_list), len(div_scores_list)), div_scores_list)
-plt.show()
+    rank_scores_list = [percentileofscore(div_scores_list, x) for x in div_scores_list]
+
+    if plot_status:
+
+        ind_ax = np.linspace(0, len(div_scores_list)-1, len(div_scores_list))
+
+        plt.figure(figsize=(10, 15))
+        plt.tight_layout(h_pad=3)
+        plt.subplot(311)
+        plt.plot(ind_ax, div_scores_list)
+        plt.title('Diversity Scores for The Present')
+        plt.ylabel('Raw Score')
+
+        plt.subplot(312)
+        plt.plot(ind_ax, rank_scores_list)
+        plt.ylabel('Percentile')
+
+        plt.subplot(313)
+        plt.plot(ind_ax, out_of_bounds.values())
+        plt.ylabel('# Fixations Lost')
+        plt.xlabel('Volumes (TR)')
+        plt.show()
+
+    output = zip(np.linspace(0, len(rank_scores_list)-1, len(rank_scores_list)), rank_scores_list)
+
+    p10 = []
+    p50 = []
+    p95 = []
+
+    for vol, rank in output:
+
+        if rank < 10:
+
+            p10.append([vol, rank])
+
+        elif np.floor(rank) == 50:
+
+            p50.append([vol, rank])
+
+        elif rank > 95:
+
+            p95.append([vol, rank])
+
+    rank_dict = {'10th percentile': p10, '50th percentile': p50, '95th percentile': p95}
+
+    return rank_dict, sum_stats_per_vol
+
+diversity_score_analysis_peer(plot_status=True)
+
+def diversity_score_analysis_et():
+
+    print('content')
+
 
 
 
