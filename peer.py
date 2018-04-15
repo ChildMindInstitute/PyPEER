@@ -505,6 +505,9 @@ def stack_fixation_series(params, viewtype='calibration', sorted_by='mean_fd'):
 
             print('Error processing subject ' + sub)
 
+    x_hm_without_mean = np.stack(x_stack)
+    y_hm_without_mean = np.stack(y_stack)
+
     arr = np.zeros(len(x_series))
     arrx = np.array([-np.round(monitor_width / 2, 0) for x in arr])
     arry = np.array([-np.round(monitor_height / 2, 0) for x in arr])
@@ -538,7 +541,7 @@ def stack_fixation_series(params, viewtype='calibration', sorted_by='mean_fd'):
     plot_heatmap_from_stacked_fixation_series(x_hm, viewtype, direc='x')
     plot_heatmap_from_stacked_fixation_series(y_hm, viewtype, direc='y')
 
-    return x_hm, y_hm
+    return x_hm, y_hm, x_hm_without_mean, y_hm_without_mean
 
 
 def compare_correlations(sub_list, x_ax='1', y_ax='13'):
@@ -1120,6 +1123,138 @@ def bin_class(sub_list, tt_split=.5):
     plt.ylabel('TPR')
     plt.legend()
     plt.show()
+
+
+
+
+# For every volume, get the diversity score for ET and PEER
+# 1)x create uniform histogram with 30x30 bins, with 35 vertical and 56 horizontal
+# 2)o create histogram with fixations for each volume
+# 3)o calculate absolute deviation between uniform and fixation
+# 4)o compare diversity scores from ET and PEER
+
+def diversity_score_analysis():
+
+monitor_width = 1680
+monitor_height = 1050
+
+uniform_val = float(1 / ((monitor_width / 30) * (monitor_height / 30)))
+
+params, sub_list = load_data(min_scan=2)
+
+x_hm, y_hm, x_hm_without_end, y_hm_without_end = stack_fixation_series(params, viewtype='tp', sorted_by='mean_fd')
+
+
+
+
+
+fixation_bins_vols = {}
+
+for vol in range(len(x_hm_without_end[0])):
+
+    fixation_bins_vols[str(vol)] = []
+
+for vol in range(len(x_hm_without_end[0])):
+
+    fixation_bins = {}
+
+    for bin1 in range(int(monitor_width / 30)):
+
+        fix_dict = {}
+
+        for bin2 in range(int(monitor_height / 30)):
+
+            fix_dict[str(bin2)] = []
+
+        fixation_bins[str(bin1)] = fix_dict
+
+    fixation_bins_vols[str(vol)] = fixation_bins
+
+
+
+
+
+
+fixation_series = {}
+
+for vol in range(len(x_hm_without_end[0])):
+
+    fixation_series[vol] = []
+
+for vol in range(len(x_hm_without_end[0])):
+
+    for sub in range(len(x_hm_without_end)):
+
+        fixation_series[vol].append([x_hm_without_end[sub][vol], y_hm_without_end[sub][vol]])
+
+out_of_bounds = {}
+sum_stats_per_vol = {}
+
+for vol in range(len(x_hm_without_end[0])):
+
+    out_of_bounds_count = 0
+    out_of_bounds[vol] = []
+
+    total_count = 0
+    present_in_vol = 0
+
+    for sub in range(len(x_hm_without_end)):
+
+        x_bin = str(int(np.floor((x_hm_without_end[sub][vol] + 840)/30)))
+        y_bin = str(int(np.floor((y_hm_without_end[sub][vol] + 525)/30)))
+
+        if (int(x_bin) < 0) or (int(x_bin) > 55) or (int(y_bin) < 0) or (int(y_bin) > 34):
+
+            out_of_bounds_count += 1
+            total_count += 1
+
+        else:
+
+            fixation_bins_vols[str(vol)][x_bin][y_bin].append('fixation')
+            total_count += 1
+            present_in_vol += 1
+
+    out_of_bounds[vol] = out_of_bounds_count
+    expected_count = present_in_vol + out_of_bounds_count
+
+    sum_stats_per_vol[str(vol)] = {'total count': total_count, 'expected count': expected_count,
+                                   'out of bounds count': out_of_bounds_count, 'fixation count': present_in_vol}
+
+
+for vol in range(len(x_hm_without_end[0])):
+
+    for bin1 in fixation_bins.keys():
+
+        for bin2 in fixation_bins['0'].keys():
+
+            fixation_bins_vols[str(vol)][bin1][bin2] = abs(float(len(fixation_bins[bin1][bin2]) /\
+                                                                 (sum_stats_per_vol[str(vol)]['fixation count'])) - \
+                                                           uniform_val)
+
+diversity_score_dict = {}
+
+for vol in range(len(x_hm_without_end[0])):
+
+    count_val = 0
+
+    for bin1 in fixation_bins_vols[str(vol)].keys():
+
+        for bin2 in fixation_bins_vols[str(vol)]['0'].keys():
+
+            count_val += fixation_bins_vols[str(vol)][bin1][bin2]
+
+    diversity_score_dict[str(vol)] = count_val - abs((uniform_val - 1/sum_stats_per_vol[str(vol)]['fixation count']))*397
+
+div_scores_list = list(diversity_score_dict.values())
+
+plt.figure()
+plt.plot(np.linspace(0, len(div_scores_list)-5, len(div_scores_list)-5), div_scores_list[5:])
+plt.show()
+
+
+
+
+
 
 ########################################################################################################################
 
