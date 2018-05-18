@@ -27,8 +27,6 @@ disc_analysis <- function(sub_list, analysis_group=NULL) {
     num_volumes = length(analysis_group)
   }
   
-  print(num_volumes)
-  
   x_matrix = matrix(, nrow=1, ncol=num_volumes)
   y_matrix = matrix(, nrow=1, ncol=num_volumes)
   sub_ids = c()
@@ -63,6 +61,8 @@ disc_analysis <- function(sub_list, analysis_group=NULL) {
       
   }
   
+  # sub_ids = sample(sub_ids) # Randomly samples ID's to check for discriminability score by chance
+  
   x_matrix = x_matrix[-1,]
   y_matrix = y_matrix[-1,]
   
@@ -82,4 +82,9 @@ disc_analysis <- function(sub_list, analysis_group=NULL) {
   
 }
 
-disc_analysis(sub_list, analysis_group=peer_q1)
+disc_analysis(sub_list)
+
+
+
+
+
