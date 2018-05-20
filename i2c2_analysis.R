@@ -42,4 +42,9 @@ for (sub in sub_list) {
 
 joint_matrix = joint_matrix[-1, ]
 
-output = i2c2(joint_matrix, id=ids, visit=modality)
+output = i2c2(y = joint_matrix, id=ids, visit=modality)
+
+lambdas = I2C2.mcNulldist(y=joint_matrix, id=ids, visit=modality)$lambda
+
+
+

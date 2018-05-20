@@ -29,7 +29,8 @@ disc_analysis <- function(sub_list, analysis_group=NULL) {
   
   x_matrix = matrix(, nrow=1, ncol=num_volumes)
   y_matrix = matrix(, nrow=1, ncol=num_volumes)
-  sub_ids = c()
+  et_sub_ids = c()
+  peer_sub_ids = c()
 
   for (sub in sub_list) {
     
@@ -53,7 +54,8 @@ disc_analysis <- function(sub_list, analysis_group=NULL) {
           x_matrix = rbind(x_matrix, x_et, x_peer)
           y_matrix = rbind(y_matrix, y_et, y_peer)
           
-          sub_ids = rbind(sub_ids, sub, sub)
+          et_sub_ids = rbind(et_sub_ids, sub)
+          peer_sub_ids = rbind(peer_sub_ids, sub)
           
           }
           
@@ -61,7 +63,16 @@ disc_analysis <- function(sub_list, analysis_group=NULL) {
       
   }
   
-  # sub_ids = sample(sub_ids) # Randomly samples ID's to check for discriminability score by chance
+  sub_ids = c()
+  
+#   et_sub_ids = sample(et_sub_ids) # Randomize order of subjects
+#   peer_sub_ids = sample(peer_sub_ids)
+  
+  for (item in c(1:length(et_sub_ids))) {
+    
+    sub_ids = rbind(sub_ids, et_sub_ids[item], peer_sub_ids[item])
+    
+  }
   
   x_matrix = x_matrix[-1,]
   y_matrix = y_matrix[-1,]

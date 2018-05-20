@@ -1,3 +1,5 @@
+library(easyGgplot2)
+
 sub_list = read.csv('/home/json/Desktop/peer/et_qap.csv')
 sub_list = sub_list$Subjects
 
@@ -14,6 +16,12 @@ x_correlations = c()
 y_subjects = c()
 y_correlations = c()
 
+x_scatter_et = c()
+x_scatter_peer = c()
+y_scatter_et = c()
+y_scatter_peer = c()
+subs_scatter = c()
+
 for (sub in sub_list) {
   
   if (file.exists(paste('/data2/Projects/Jake/Human_Brain_Mapping/', sub, '/et_device_pred.csv', sep="")) & file.exists(paste('/data2/Projects/Jake/Human_Brain_Mapping/', sub, '/gsr0_train1_model_tp_predictions.csv', sep=""))) {
@@ -28,10 +36,17 @@ for (sub in sub_list) {
     
     if (length(x_et) == 250 & length(x_peer) == 250) {
       
-      x_subjects = rbind(subjects, sub, sub)
-      y_subjects = rbind(subjects, sub, sub)
-      x_correlations = rbind(correlations, cor(x_et, x_et_group, method='pearson'), cor(x_peer, x_peer_group, method='pearson'))
-      y_correlations = rbind(correlations, cor(y_et, y_et_group, method='pearson'), cor(y_peer, y_peer_group, method='pearson'))
+      x_subjects = rbind(x_subjects, sub, sub)
+      y_subjects = rbind(y_subjects, sub, sub)
+      x_correlations = rbind(x_correlations, cor(x_et, x_et_group, method='pearson'), cor(x_peer, x_peer_group, method='pearson'))
+      y_correlations = rbind(y_correlations, cor(y_et, y_et_group, method='pearson'), cor(y_peer, y_peer_group, method='pearson'))
+      
+      subs_scatter = rbind(subs_scatter, sub)
+      x_scatter_et = rbind(x_scatter_et, cor(x_et, x_et_group, method='pearson'))
+      x_scatter_peer = rbind(x_scatter_peer, cor(x_peer, x_peer_group, method='pearson'))
+      y_scatter_et = rbind(y_scatter_et, cor(y_et, y_et_group, method='pearson'))
+      y_scatter_peer = rbind(y_scatter_peer, cor(y_peer, y_peer_group, method='pearson'))
+      
     }
     
   }
@@ -41,8 +56,16 @@ for (sub in sub_list) {
 x_df = data.frame(x_subjects, x_correlations)
 y_df = data.frame(y_subjects, y_correlations)
 
-x_icc = ICCbare(c('x_subjects'), c('x_correlations'), x_df)
-y_icc = ICCbare(c('y_subjects'), c('y_correlations'), y_df)
+x_scatter_df = data.frame(subs_scatter, x_scatter_et, x_scatter_peer)
+y_scatter_df = data.frame(subs_scatter, y_scatter_et, y_scatter_peer)
 
+x_icc = ICCest(c('x_subjects'), c('x_correlations'), x_df)
+y_icc = ICCest(c('y_subjects'), c('y_correlations'), y_df)
+
+boxplot(split(x_df$x_correlations, x_df$x_subjects), main='x-direction', xaxt='n')
+boxplot(split(y_df$y_correlations, y_df$y_subjects), main='y-direction', xaxt='n')
+
+ggplot2.scatterplot(data=x_scatter_df, xName='x_scatter_et', yName='x_scatter_peer') + xlim(-.5, 1) + ylim(-.5, 1) + coord_fixed(ratio = 1)
+ggplot2.scatterplot(data=y_scatter_df, xName='y_scatter_et', yName='y_scatter_peer') + xlim(-.5, 1) + ylim(-.5, 1) + coord_fixed(ratio = 1)
 
 
