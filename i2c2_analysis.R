@@ -31,8 +31,8 @@ for (sub in sub_list) {
       modality = rbind(modality, "ET", "PEER")
       ids = rbind(ids, sub, sub)
       
-      joint_matrix = rbind(joint_matrix, cbind(x_et, x_peer))
-      joint_matrix = rbind(joint_matrix, cbind(y_et, y_peer))
+      x_joint_matrix = rbind(joint_matrix, cbind(x_et, x_peer))
+      y_joint_matrix = rbind(joint_matrix, cbind(y_et, y_peer))
       
     }
     
@@ -40,11 +40,14 @@ for (sub in sub_list) {
   
 }
 
-joint_matrix = joint_matrix[-1, ]
+x_joint_matrix = x_joint_matrix[-1, ]
+y_joint_matrix = y_joint_matrix[-1, ]
 
-output = i2c2(y = joint_matrix, id=ids, visit=modality)
+x_output = i2c2(y = x_joint_matrix, id=ids, visit=modality)
+y_output = i2c2(y = y_joint_matrix, id=ids, visit=modality)
 
-lambdas = I2C2.mcNulldist(y=joint_matrix, id=ids, visit=modality)$lambda
+x_lambdas = I2C2.mcNulldist(y=x_joint_matrix, id=ids, visit=modality)$lambda
+y_lambdas = I2C2.mcNulldist(y=y_joint_matrix, id=ids, visit=modality)$lambda
 
 
 
