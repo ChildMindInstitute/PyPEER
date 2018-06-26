@@ -25,6 +25,7 @@ video_heatmapper = VideoHeatmapper(
 
 example_vid = '/data2/Projects/Lei/Peers/The_Present_Seg/Clips/video11.mp4'
 example_vid = '/home/json/Desktop/tp_aud_removed_full.mp4'
+example_vid = '/home/json/Desktop/PEERS_trimed.mp4'
 
 #####
 
@@ -161,19 +162,26 @@ et_mean_series, peer_mean_series = mean_series(sub_list, sub_list)
     
 fixations = []
 
-for sub in sub_list:
+for sub in sub_list[:25]:
 
     try:
     
-        sub_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_tp_predictions.csv')
+#        sub_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_tp_predictions.csv')
 #        sub_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv')
+        sub_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_calibration_predictions.csv')
         x_pred = sub_df['x_pred']
         y_pred = sub_df['y_pred']
         
-        x_pred = x_scale(x_pred)
-        y_pred = y_scale(y_pred)
+#        x_pred = x_scale(x_pred)
+#        y_pred = y_scale(y_pred)
         
-        for num1 in range(250):
+        x_pred = x_pred * 1440/840  # For calibration heatmap
+        y_pred = y_pred * 900/525   # For calibration heatmap
+        
+        x_pred = [x+1440 for x in x_pred]
+        y_pred = [x+900 for x in y_pred]
+        
+        for num1 in range(135):
             
             for num2 in range(800*num1, 800*(num1+1)):
                 
@@ -192,4 +200,4 @@ heatmap_video = video_heatmapper.heatmap_on_video_path(
     points=fixations
 )
 
-heatmap_video.write_videofile('/home/json/Desktop/all_peer_full_movie.mp4')
+heatmap_video.write_videofile('/home/json/Desktop/calibration_heatmap.mp4')

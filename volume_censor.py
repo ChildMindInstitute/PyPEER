@@ -31,7 +31,7 @@ sub_list = pd.DataFrame.from_csv('/home/json/Desktop/peer/model_outputs.csv').in
 
 censor_dict = {'x_censor': [], 'y_censor': [], 'x_raw': [], 'y_raw': []}
 
-for sub in sub_list[:5]:
+for sub in sub_list:
     
     print(('Volume censoring for {}').format(sub))
 
@@ -122,12 +122,6 @@ plt.title('Effect of Volume Censoring on PEER1_r in x-')
 plt.xlim([-.5, 1])
 plt.ylim([-.5, 1])
 plt.show()
-
-
-
-
-
-
 
 
 

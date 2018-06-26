@@ -10,18 +10,9 @@ import matplotlib.pyplot as plt
 from scipy.stats import ttest_rel
 
 
-def gs_regress(data, xb, xe, yb, ye, zb, ze):
+def gs_regress(data, eye_mask):
 
-    global_mask = np.zeros([data.shape[0], data.shape[1], data.shape[2]])
-
-    for x in range(int(global_mask.shape[0])):
-        for y in range(int(global_mask.shape[1])):
-            for z in range(int(global_mask.shape[2])):
-                if x in range(xb, xe) and y in range(yb, ye) and z in range(zb, ze):
-
-                    global_mask[x, y, z] = 1
-
-    global_mask = np.array(global_mask, dtype=bool)
+    global_mask = np.array(eye_mask, dtype=bool)
 
     regressor_map = {'constant': np.ones((data.shape[3], 1))}
     regressor_map['global'] = data[global_mask].mean(0)
@@ -142,7 +133,7 @@ def scatter_plot(name, x_targets, y_targets, predicted_x, predicted_y, plot=Fals
             plt.show()
 
 
-def data_processing(scan_count, train_vectors1, train_vectors2):
+def data_processing(scan_count, train_vectors1, train_vectors2=[]):
 
     averaged_train1 = []
     averaged_train2 = []
@@ -211,19 +202,18 @@ def axis_plot(fixations, predicted_x, predicted_y, subj, train_sets=1):
 
     time_series = range(0, len(predicted_x))
 
-    # plt.figure()
-    # plt.subplot(2, 1, 1)
-    # plt.ylabel('Horizontal position')
-    # plt.plot(time_series, x_targets, '.-', color='k')
-    # plt.plot(time_series, predicted_x, '.-', color='b')
-    # plt.subplot(2, 1, 2)
-    # plt.ylabel('Vertical position')
-    # plt.xlabel('TR')
-    # # plt.title('Participant ' + str(subj))
-    # plt.plot(time_series, y_targets, '.-', color='k')
-    # plt.plot(time_series, predicted_y, '.-', color='b')
-    # # plt.savefig(os.path.join(output_path, subj + 'peer.png'), bbox_inches='tight', dpi=600)
-    # plt.show()
+    plt.figure()
+    plt.subplot(2, 1, 1)
+    plt.ylabel('Horizontal position')
+    plt.plot(time_series, x_targets, '.-', color='k')
+    plt.plot(time_series, predicted_x, '.-', color='b')
+    plt.subplot(2, 1, 2)
+    plt.ylabel('Vertical position')
+    plt.xlabel('TR')
+    plt.plot(time_series, y_targets, '.-', color='k')
+    plt.plot(time_series, predicted_y, '.-', color='b')
+    # plt.savefig(os.path.join(output_path, subj + 'peer.png'), bbox_inches='tight', dpi=600)
+    plt.show()
 
     return x_targets, y_targets
 
@@ -234,15 +224,18 @@ def update_subjects(site='RU'):
 
     resample_path = '/data2/Projects/Jake/Human_Brain_Mapping/'
 
-    params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
+    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
     sub_ref = params.index.values.tolist()
 
-    with open('peer_didactics.csv', 'a') as updated_params:
+    if len(sub_ref) == 0:
+        sub_ref = ['No subjects']
+
+    with open('model_outputs.csv', 'a') as updated_params:
         writer = csv.writer(updated_params)
 
         for subject in os.listdir(resample_path):
-            if (any(subject in x for x in sub_ref)) and ('txt' not in subject):
-                print(subject + ' is already in subj_params.csv')
+            if any([subject in x for x in sub_ref]):
+                print(subject + ' is already in model_outputs.csv')
             elif 'txt' not in subject:
                 writer.writerow([subject])
                 print('New participant ' + subject + ' was added')
@@ -257,14 +250,14 @@ def update_subjects(site='RU'):
     qap = pd.read_csv(qap_path, dtype=object)
     qap['Participant'] = qap['Participant'].str.replace('_', '-')
 
-    params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
+    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
     sub_list = params.index.values.tolist()
 
     for sub in sub_list:
 
         print('Obtaining site and number of complete calibration scans for subject ' + str(sub))
 
-        params = pd.read_csv('peer_didactics.csv', index_col='subject', dtype=object)
+        params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
 
         scan_count = int(os.path.isfile(resample_path + sub + '/peer1_eyes_sub.nii.gz')) + \
                      int(os.path.isfile(resample_path + sub + '/peer2_eyes_sub.nii.gz')) + \
@@ -272,7 +265,7 @@ def update_subjects(site='RU'):
 
         params.loc[sub, 'scan_count'] = scan_count
         params.loc[sub, 'site'] = site
-        params.to_csv('peer_didactics.csv')
+        params.to_csv('model_outputs.csv')
 
     # Include motion measures
 
@@ -280,7 +273,7 @@ def update_subjects(site='RU'):
 
         print('Obtaining motion measures for subject ' + str(sub))
 
-        params = pd.read_csv('peer_didactics.csv', dtype=object)
+        params = pd.read_csv('model_outputs.csv', dtype=object)
 
         scan_count = int(params[params.subject == sub].scan_count)
 
@@ -316,7 +309,7 @@ def update_subjects(site='RU'):
             params = params.set_index('subject')
             params.loc[sub, 'mean_fd'] = fdm
             params.loc[sub, 'dvars'] = dvm
-            params.to_csv('peer_didactics.csv')
+            params.to_csv('model_outputs.csv')
 
         except:
 
