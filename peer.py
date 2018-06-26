@@ -5,6 +5,16 @@ import pandas as pd
 import nibabel as nib
 from sklearn.svm import SVR
 import matplotlib.pyplot as plt
+from scipy.stats import spearmanr
+import math
+from sklearn.model_selection import KFold
+
+from scipy import stats
+
+from itertools import combinations
+
+from sklearn import preprocessing
+
 from aux_process import *
 import pickle
 import seaborn as sns
@@ -22,6 +32,10 @@ from sklearn.metrics import confusion_matrix, roc_curve, auc
 from scipy.stats import ttest_rel
 from scipy.stats import pearsonr, percentileofscore
 from sklearn.metrics import mean_squared_error
+
+import statsmodels.api as sm
+
+from matplotlib import gridspec
 
 from joblib import Parallel, delayed
 
@@ -389,11 +403,7 @@ def create_dict_with_rmse_and_corr_values(sub_list):
 
         for train_set in file_dict.keys():
 
-            if np.isnan(pd.DataFrame.from_csv(resample_path + sub + file_dict['3'])['corr_x'][0]):
-
-                continue
-
-            else:
+            if os.path.exists(resample_path + sub + file_dict['3']) and (np.isnan(pd.DataFrame.from_csv(resample_path+sub+file_dict['3'])['corr_x'][0]) != True):
 
                 try:
 
@@ -412,7 +422,24 @@ def create_dict_with_rmse_and_corr_values(sub_list):
 
                     print('Error processing subject ' + sub + ' for ' + train_set)
 
+            else:
+
+                continue
+
     return params_dict
+
+
+def proportion_above_threshold(params_dict, train_set='1', prop=.50):
+
+    x_corr_list = params_dict[train_set]['corr_x']
+    y_corr_list = params_dict[train_set]['corr_y']
+
+    x_corr_prop = len([x for x in x_corr_list if x > prop])/len(x_corr_list)
+    y_corr_prop = len([x for x in y_corr_list if x > prop])/len(y_corr_list)
+
+    print(x_corr_prop, y_corr_prop)
+
+    return x_corr_prop, y_corr_prop
 
 
 def create_individual_swarms(sub_list, train_set='1'):
@@ -458,7 +485,7 @@ def create_individual_swarms(sub_list, train_set='1'):
     plt.show()
 
 
-def stack_fixation_series(params, viewtype='calibration', sorted_by='mean_fd'):
+def stack_fixation_series(params, viewtype='calibration', sorted_by='mean_fd', modality='peer'):
 
     """ Stacks fixations for a given viewtype for heatmap visualization
 
@@ -489,7 +516,14 @@ def stack_fixation_series(params, viewtype='calibration', sorted_by='mean_fd'):
 
         try:
 
-            temp_df = pd.DataFrame.from_csv(resample_path + sub + filename_dict[viewtype]['name'])
+            if modality == 'peer':
+
+                temp_df = pd.DataFrame.from_csv(resample_path + sub + filename_dict[viewtype]['name'])
+
+            elif modality == 'et':
+
+                temp_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv')
+
             x_series = list(temp_df['x_pred'])
             y_series = list(temp_df['y_pred'])
 
@@ -556,32 +590,32 @@ def compare_correlations(sub_list, x_ax='1', y_ax='13'):
 
     params_dict = create_dict_with_rmse_and_corr_values(sub_list)
 
-    val_range = np.linspace(np.nanmin(params_dict[x_ax]['corr_x']), np.nanmax(params_dict[x_ax]['corr_x']))
+    val_range = np.linspace(np.nanmin(params_dict[x_ax]['corr_x']), np.nanmax(params_dict[x_ax]['corr_x']), len(params_dict[x_ax]['corr_x']))
     z = np.polyfit(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'], 1)
     p = np.poly1d(z)
-    r2_text = 'r2 vale: ' + str(r2_score(params_dict[x_ax]['corr_x'], p(params_dict[x_ax]['corr_x'])))
+    r2_text = 'r2 value: ' + str(r2_score(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x']))[:7]
 
     plt.figure()
     plt.title('Comparing training sets ' + x_ax + ' and ' + y_ax + ' in x')
     plt.xlabel('Training set ' + x_ax)
     plt.ylabel('Training set ' + y_ax)
     plt.scatter(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'], label='Correlation values')
-    plt.plot(val_range, z(val_range), color='r', label=r2_text)
+    plt.plot(val_range, p(val_range), color='r', label=r2_text)
     plt.plot([-.5, 1], [-.5, 1], '--', color='k', label='Identical Performance')
     plt.legend()
     plt.show()
 
-    val_range = np.linspace(np.nanmin(params_dict[x_ax]['corr_x']), np.nanmax(params_dict[x_ax]['corr_x']))
-    z = np.polyfit(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'], 1)
+    val_range = np.linspace(np.nanmin(params_dict[x_ax]['corr_y']), np.nanmax(params_dict[x_ax]['corr_y']), len(params_dict[x_ax]['corr_x']))
+    z = np.polyfit(params_dict[x_ax]['corr_y'], params_dict[y_ax]['corr_y'], 1)
     p = np.poly1d(z)
-    r2_text = 'r2 vale: ' + str(r2_score(params_dict[x_ax]['corr_x'], p(params_dict[x_ax]['corr_x'])))
+    r2_text = 'r2 value: ' + str(r2_score(params_dict[x_ax]['corr_y'], params_dict[y_ax]['corr_y']))[:7]
 
     plt.figure()
     plt.title('Comparing training sets ' + x_ax + ' and ' + y_ax + ' in y')
     plt.xlabel('Training set ' + x_ax)
     plt.ylabel('Training set ' + y_ax)
     plt.scatter(params_dict[x_ax]['corr_y'], params_dict[y_ax]['corr_y'], label='Correlation values')
-    plt.plot(val_range, m1 * val_range + b1, color='r', label=r2_text)
+    plt.plot(val_range, p(val_range), color='r', label=r2_text)
     plt.plot([-.5, 1], [-.5, 1], '--', color='k', label='Identical Performance')
     plt.legend()
     plt.show()
@@ -612,7 +646,7 @@ def plot_heatmap_from_stacked_fixation_series(fixation_series, viewtype, direc='
 
 
 
-def motion_and_correlation_linear_fit(sub_list, motion_type='mean_fd'):
+def motion_and_correlation_linear_fit(sub_list, motion_type='mean_fd', thresh=.2):
 
     """Determines simple first order linear fit between motion parameter and correlation values
 
@@ -641,31 +675,58 @@ def motion_and_correlation_linear_fit(sub_list, motion_type='mean_fd'):
 
             continue
 
+    # Only include subjects with mean_fd < 1.5
+    mean_fd_list = []
+    dvars_list = []
+    corr_x_list = []
+    corr_y_list = []
+
+    for num in range(len(motion_dict['mean_fd'])):
+
+        if motion_dict['mean_fd'][num] < thresh:
+
+            mean_fd_list.append(motion_dict['mean_fd'][num])
+            dvars_list.append(motion_dict['dvars'][num])
+            corr_x_list.append(motion_dict['corr_x'][num])
+            corr_y_list.append(motion_dict['corr_y'][num])
+
+    motion_dict['mean_fd'] = mean_fd_list
+    motion_dict['dvars'] = dvars_list
+    motion_dict['corr_x'] = corr_x_list
+    motion_dict['corr_y'] = corr_y_list
+
+    lowess = sm.nonparametric.lowess
+
+    z_x = lowess(motion_dict['corr_x'], motion_dict[motion_type])
+    z_y = lowess(motion_dict['corr_y'], motion_dict[motion_type])
+
     val_range = np.linspace(np.nanmin(motion_dict[motion_type]), np.nanmax(motion_dict[motion_type]))
     z = np.polyfit(motion_dict[motion_type], motion_dict['corr_x'], 1)
     p = np.poly1d(z)
-    r2_text = 'r2 value: ' + str(r2_score(motion_dict[motion_type], p(motion_dict['corr_x'])))
+    r2_text = 'r2 value: ' + str(r2_score(motion_dict[motion_type], p(motion_dict[motion_type])))
 
     plt.figure()
     plt.title('Linear Fit for ' + motion_type + ' in x')
     plt.xlabel(motion_type)
     plt.ylabel('Correlation Values')
-    plt.scatter(motion_dict[motion_type], motion_dict['corr_x'], label='Correlation values')
-    plt.plot(val_range, p(val_range), color='r', label=r2_text)
+    plt.scatter(motion_dict[motion_type], motion_dict['corr_x'], label='Correlation values', alpha=.5)
+    # plt.plot(val_range, p(val_range), color='r', label=r2_text)
+    plt.plot(z_x[:, 0], z_x[:, 1], 'r', label='Lowess Smoothing')
     plt.legend()
     plt.show()
 
     val_range = np.linspace(np.nanmin(motion_dict[motion_type]), np.nanmax(motion_dict[motion_type]))
     z = np.polyfit(motion_dict[motion_type], motion_dict['corr_y'], 1)
     p = np.poly1d(z)
-    r2_text = 'r2 value: ' + str(r2_score(motion_dict[motion_type], p(motion_dict['corr_y'])))
+    r2_text = 'r2 value: ' + str(r2_score(motion_dict[motion_type], p(motion_dict[motion_type])))
 
     plt.figure()
     plt.title('Linear Fit for ' + motion_type + ' in y')
     plt.xlabel(motion_type)
     plt.ylabel('Correlation Values')
-    plt.scatter(motion_dict[motion_type], motion_dict['corr_y'], label='Correlation values')
-    plt.plot(val_range, p(val_range), color='r', label=r2_text)
+    plt.scatter(motion_dict[motion_type], motion_dict['corr_y'], label='Correlation values', alpha=.5)
+    # plt.plot(val_range, p(val_range), color='r', label=r2_text)
+    plt.plot(z_y[:, 0], z_y[:, 1], 'r', label='Lowess Smoothing')
     plt.legend()
     plt.show()
 
@@ -701,25 +762,48 @@ def et_samples_to_pandas(sub):
     """
 
     sub = sub.strip('sub-')
+    
+    try:
 
-    with open(eye_tracking_path + sub + '/Eyetracking/txt/' + sub + '_Video4_Samples.txt') as f:
-        reader = csv.reader(f, delimiter='\t')
-        content = list(reader)[38:]
-
-        headers = content[0]
-
-        df = pd.DataFrame(content[1:], columns=headers, dtype='float')
-
-    msg_time = list(df[df.Type == 'MSG'].Time)
-
-    start_time = float(msg_time[2])
-
-    df_msg_removed = df[(df.Time > start_time)][['Time',
-                                                 'R POR X [px]',
-                                                 'R POR Y [px]']]
-
-    df_msg_removed.update(df_msg_removed['R POR X [px]'].apply(scale_x_pos))
-    df_msg_removed.update(df_msg_removed['R POR Y [px]'].apply(scale_y_pos))
+        with open(eye_tracking_path + sub + '/Eyetracking/txt/' + sub + '_Video4_Samples.txt') as f:
+            reader = csv.reader(f, delimiter='\t')
+            content = list(reader)[37:]
+    
+            headers = content[0]
+    
+            df = pd.DataFrame(content[1:], columns=headers, dtype='float')
+    
+        msg_time = list(df[df.Type == 'MSG'].Time)
+    
+        start_time = float(msg_time[1])
+    
+        df_msg_removed = df[(df.Time > start_time)][['Time',
+                                                     'R POR X [px]',
+                                                     'R POR Y [px]']]
+    
+        df_msg_removed.update(df_msg_removed['R POR X [px]'].apply(scale_x_pos))
+        df_msg_removed.update(df_msg_removed['R POR Y [px]'].apply(scale_y_pos))
+        
+    except:
+        
+        with open(eye_tracking_path + sub + '/Eyetracking/txt/' + sub + '_Video4_Samples.txt') as f:
+            reader = csv.reader(f, delimiter='\t')
+            content = list(reader)[38:]
+    
+            headers = content[0]
+    
+            df = pd.DataFrame(content[1:], columns=headers, dtype='float')
+    
+        msg_time = list(df[df.Type == 'MSG'].Time)
+    
+        start_time = float(msg_time[1])
+    
+        df_msg_removed = df[(df.Time > start_time)][['Time',
+                                                     'R POR X [px]',
+                                                     'R POR Y [px]']]
+    
+        df_msg_removed.update(df_msg_removed['R POR X [px]'].apply(scale_x_pos))
+        df_msg_removed.update(df_msg_removed['R POR Y [px]'].apply(scale_y_pos))
 
     return df_msg_removed, start_time
 
@@ -733,25 +817,31 @@ def average_fixations_per_tr(df, start_time):
     :return: Dataframe containing averaged fixation series for each TR block
     """
 
-    mean_fixations = []
+    median_fixations = []
 
     movie_volume_count = 250
     movie_TR = 800  # in milliseconds
+    
+    missing_samples = 0
+    total_samples = 0
 
     for num in range(movie_volume_count):
 
         bin0 = start_time + num * 1000 * movie_TR
         bin1 = start_time + (num + 1) * 1000 * movie_TR
         df_temp = df[(df.Time >= bin0) & (df.Time <= bin1)]
+        
+        missing_samples += list(df_temp['R POR X [px]']).count(-840)
+        total_samples += df_temp.shape[0]
 
-        x_pos = np.mean(df_temp['R POR X [px]'])
-        y_pos = np.mean(df_temp['R POR Y [px]'])
+        x_pos = np.nanmedian(df_temp['R POR X [px]'])
+        y_pos = np.nanmedian(df_temp['R POR Y [px]'])
 
-        mean_fixations.append([x_pos, y_pos])
+        median_fixations.append([x_pos, y_pos])
 
-    df = pd.DataFrame(mean_fixations, columns=(['x_pred', 'y_pred']))
+    df_out = pd.DataFrame(median_fixations, columns=(['x_pred', 'y_pred']))
 
-    return df
+    return df_out, missing_samples, total_samples
 
 
 def save_mean_fixations(mean_df):
@@ -775,20 +865,55 @@ def create_eye_tracker_fixation_series(sub):
 
     try:
 
-        if os.path.exists('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv'):
+        if os.path.exists('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csSDFSDFSDFSFv'):
 
             print('ET fixation series already saved for ' + sub)
 
         else:
 
             df_output, start_time = et_samples_to_pandas(sub)
-            mean_df = average_fixations_per_tr(df_output, start_time)
+            mean_df, missing_samples, total_samples = average_fixations_per_tr(df_output, start_time)
             save_mean_fixations(mean_df)
             print('Completed processing ' + sub)
 
     except:
 
         print('Error processing ' + sub)
+        missing_samples = 'error'
+        total_samples = 'error'
+        
+    return missing_samples, total_samples
+
+
+qap_et = []
+subs = []
+miss = []
+tota = []
+qap_dict = {}
+
+for sub in sub_list:
+    
+    missing, total = create_eye_tracker_fixation_series(sub)
+    
+    if missing != 'error':
+    
+        if missing < .10 * total:
+            
+            qap_et.append(sub)
+            subs.append(sub)
+            miss.append(missing)
+            tota.append(total)
+        else:
+            
+            print('Low quality eye-tracking data')
+
+qap_dict['Subjects'] = subs
+qap_dict['Missing'] = miss
+qap_dict['Total'] = tota
+qap_dict['Portion Missing'] = np.array(miss) / np.array(tota)
+
+df = pd.DataFrame.from_dict(qap_dict)
+df.to_csv('/home/json/Desktop/peer/et_qap.csv')
 
 
 def create_sub_list_with_et_and_peer(full_list):
@@ -811,6 +936,7 @@ def create_sub_list_with_et_and_peer(full_list):
     return et_list
 
 
+
 def compare_et_and_peer(sub, plot=False):
 
     et_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv')
@@ -822,7 +948,7 @@ def compare_et_and_peer(sub, plot=False):
 
     if plot:
 
-        plt.figure(figsize=(10,5))
+        plt.figure(figsize=(20,15))
         plt.plot(np.linspace(0, 249, 250), et_df['x_pred'], 'r-', label='eye-tracker')
         plt.plot(np.linspace(0, 249, 250), peer_df['x_pred'], 'b-', label='PEER')
         plt.title(sub + ' with correlation value: ' + str(corr_val_x)[:5])
@@ -831,14 +957,14 @@ def compare_et_and_peer(sub, plot=False):
         plt.legend()
         plt.show()
 
-        plt.figure(figsize=(10,5))
-        plt.plot(np.linspace(0, 249, 250), et_df['y_pred'], 'r-', label='eye-tracker')
-        plt.plot(np.linspace(0, 249, 250), peer_df['y_pred'], 'b-', label='PEER')
-        plt.title(sub + ' with correlation value: ' + str(corr_val_y)[:5])
-        plt.xlabel('TR')
-        plt.ylabel('Fixation location (px)')
-        plt.legend()
-        plt.show()
+#        plt.figure(figsize=(10,5))
+#        plt.plot(np.linspace(0, 249, 250), et_df['y_pred'], 'r-', label='eye-tracker')
+#        plt.plot(np.linspace(0, 249, 250), peer_df['y_pred'], 'b-', label='PEER')
+#        plt.title(sub + ' with correlation value: ' + str(corr_val_y)[:5])
+#        plt.xlabel('TR')
+#        plt.ylabel('Fixation location (px)')
+#        plt.legend()
+#        plt.show()
 
     return corr_val_x, corr_val_y
 
@@ -853,6 +979,7 @@ def create_swarm_plot_for_et_and_peer(sub_list):
         try:
 
             corr_val_x, corr_val_y = compare_et_and_peer(sub, plot=False)
+            print(corr_val_x, corr_val_y)
             corr_et_peer_x.append(corr_val_x)
             corr_et_peer_y.append(corr_val_y)
 
@@ -862,18 +989,20 @@ def create_swarm_plot_for_et_and_peer(sub_list):
 
     index_vals = ['Peer vs. ET' for x in range(len(corr_et_peer_x))]
 
-    swarm_dict = {'index': index_vals, 'corr_x': corr_et_peer_x, 'corr_y': corr_et_peer_y}
+    swarm_dict = {'': index_vals, 'Correlation Values in x': corr_et_peer_x, 'Correlation Values in y': corr_et_peer_y}
 
     swarm_df = pd.DataFrame.from_dict(swarm_dict)
 
     sns.set()
-    ax = sns.swarmplot(x='index', y='corr_x', data=swarm_df)
+    ax = sns.swarmplot(x='', y='Correlation Values in x', data=swarm_df)
     ax.set(title='Distribution of Correlation Values for ET vs. PEER Fixation Series in x')
+    plt.savefig('/home/json/Desktop/peer_figures/et_peer_congruence_x.png', dpi=600)
     plt.show()
 
     sns.set()
-    ax = sns.swarmplot(x='index', y='corr_y', data=swarm_df)
+    ax = sns.swarmplot(x='', y='Correlation Values in y', data=swarm_df)
     ax.set(title='Distribution of Correlation Values for ET vs. PEER Fixation Series in y')
+    plt.savefig('/home/json/Desktop/peer_figures/et_peer_congruence_y.png', dpi = 600)
     plt.show()
 
     return corr_et_peer_x, corr_et_peer_y
@@ -990,6 +1119,7 @@ def create_df_containing_within_without_separation(matrix_x, matrix_y):
 
 # within_without_df, wi_ss_x, wo_ss_x, wi_ss_y, wo_ss_y = create_df_containing_within_without_separation(corr_matrix_x, corr_matrix_y)
 
+
 def plot_within_without_groups(df, dir_='x'):
 
     sns.set()
@@ -1011,19 +1141,6 @@ def grouping_ss(within, without):
 
 # wi_mean_x, wo_mean_x, wi_stdv_x, wo_stdv_x = grouping_ss(wi_ss_x, wo_ss_x)
 # wi_mean_y, wo_mean_y, wi_stdv_y, wo_stdv_y = grouping_ss(wi_ss_y, wo_ss_y)
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def bin_class(sub_list, tt_split=.5):
@@ -1156,16 +1273,7 @@ def bin_class(sub_list, tt_split=.5):
     plt.show()
 
 
-
-
-# For every volume, get the diversity score for ET and PEER
-# 1)x create uniform histogram with 30x30 bins, with 35 vertical and 56 horizontal
-# 2)o create histogram with fixations for each volume
-# 3)o calculate absolute deviation between uniform and fixation
-# 4)o compare diversity scores from ET and PEER
-
-
-def diversity_score_analysis_peer(plot_status=True):
+def diversity_score_analysis(plot_status=True, mod='et'):
 
     monitor_width = 1680
     monitor_height = 1050
@@ -1174,7 +1282,7 @@ def diversity_score_analysis_peer(plot_status=True):
 
     params, sub_list = load_data(min_scan=2)
 
-    x_hm, y_hm, x_hm_without_end, y_hm_without_end = stack_fixation_series(params, viewtype='tp', sorted_by='mean_fd')
+    x_hm, y_hm, x_hm_without_end, y_hm_without_end = stack_fixation_series(params, viewtype='tp', sorted_by='mean_fd', modality=mod)
 
     fixation_bins_vols = {}
 
@@ -1308,21 +1416,67 @@ def diversity_score_analysis_peer(plot_status=True):
 
     rank_dict = {'10th percentile': p10, '50th percentile': p50, '95th percentile': p95}
 
-    return rank_dict, sum_stats_per_vol
+    return rank_dict, sum_stats_per_vol, div_scores_list, rank_scores_list, out_of_bounds.values()
 
-diversity_score_analysis_peer(plot_status=True)
+rank_dict, sum_stats_per_vol, div_scores_list, rank_scores_list, out_of_bounds_list = diversity_score_analysis(plot_status=True, mod='peer')
 
-def diversity_score_analysis_et():
+def overlay_div_scores():
 
-    print('content')
+    sns.set()
+
+    rank_dict1, sum_stats_per_vol1, div_scores_list1, rank_scores_list1, out_of_bounds_list1 = diversity_score_analysis(
+        plot_status=False, mod='peer')
+
+    rank_dict2, sum_stats_per_vol2, div_scores_list2, rank_scores_list2, out_of_bounds_list2 = diversity_score_analysis(
+        plot_status=False, mod='et')
+
+    ind_ax = np.linspace(0, len(div_scores_list1) - 1, len(div_scores_list1))
+
+    plt.figure()
+    plt.plot(ind_ax, rank_scores_list1, label='PEER')
+    plt.plot(ind_ax, rank_scores_list2, label='ET')
+    plt.legend()
+    plt.show()
+
+
+plt.figure(figsize=(10,8))
+plt.plot(ind_ax, rank_scores_list, 'r-', label='ET', alpha=.5)
+plt.plot(ind_ax, rank_scores_list1, 'b-', label='PEER', alpha=.5)
+plt.title('Diversity Score Percentile Comparison')
+plt.xlabel('Volumes (TR)')
+plt.ylabel('Diversity Score Percentile')
+plt.legend()
+plt.savefig('/home/json/Desktop/peer_figures/diversity_score_et_peer_percentiles.png', dpi=600)
+plt.show()
 
 
 
+rank_dict = {}
+p10 = []
+p50 = []
+p95 = []
 
+for num in range(len(rank_scores_list)):
+
+    if (rank_scores_list[num] < 10) and (rank_scores_list1[num] <10):
+
+        p10.append(ind_ax[num])
+
+    elif (np.floor(rank_scores_list[num]) == 50) and (np.floor(rank_scores_list1[num] == 50)):
+
+        p50.append(ind_ax[num])
+
+    elif (rank_scores_list[num] > 95) and (rank_scores_list1[num] > 95):
+
+        p95.append(ind_ax[num])
+
+rank_dict = {'10th percentile': p10, '50th percentile': p50, '95th percentile': p95}
 
 
 
 ########################################################################################################################
+
+
 
 
 
@@ -1873,85 +2027,100 @@ def squash(in_val, c1, c2):
 
     return output
 
-params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
-params = params.convert_objects(convert_numeric=True)
-sub_list = params.index.values.tolist()
 
-for sub in sub_list:
+def squash_eyemove(sub_list, viewtype='tp'):
 
-    try:
+    data_path = '/data2/Projects/Lei/Peers/Prediction_data/'
 
-        # with open(data_path + sub + '/DM_eyemove.txt') as f:
-        #     content = f.readlines()
-        # dm = [float(x.strip('\n')) for x in content if float(x.strip('\n')) ]
-        with open(data_path + sub + '/TP_eyemove.txt') as f:
-            content = f.readlines()
-        tp = [float(x.strip('\n')) for x in content if float(x.strip('\n'))]
+    if viewtype == 'calibration':
 
-        # dm_mean = np.mean(dm)
-        tp_mean = np.mean(tp)
-        # dm_std = np.std(dm)
-        tp_std = np.std(tp)
+        for sub in sub_list:
 
-        # dm_z = [(x-dm_mean)/dm_std for x in dm]
-        tp_z = [(x-tp_mean)/tp_std for x in tp]
+            try:
 
-        t_upper = 4.0
-        t_lower = 2.5
+                with open(data_path + sub + '/PEER2_eyemove.txt') as f:
+                    content = f.readlines()
+                tp = [float(x.strip('\n')) for x in content if float(x.strip('\n'))]
 
-        dm_squashed = []
-        tp_squashed = []
-        dm_spikes = []
-        tp_spikes = []
+                tp_mean = np.mean(tp)
+                tp_std = np.std(tp)
 
-        # for x in dm_z:
-        #     if abs(x) < t_lower:
-        #         dm_squashed.append(x)
-        #         dm_spikes.append(0)
-        #     else:
-        #         dm_squashed.append(squash(x, t_lower, t_upper))
-        #         dm_spikes.append(1)
+                tp_z = [(x-tp_mean)/tp_std for x in tp]
 
-        for x in tp_z:
-            if abs(x) < t_lower:
-                tp_squashed.append(x)
-                tp_spikes.append(0)
-            else:
-                tp_squashed.append(squash(x, t_lower, t_upper))
-                tp_spikes.append(1)
+                t_upper = 4.0
+                t_lower = 2.5
 
-        # dm_output = [dm_mean + x*dm_std for x in dm_squashed]
-        tp_output = [tp_mean + x*tp_std for x in tp_squashed]
+                tp_squashed = []
+                tp_spikes = []
 
-        # with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/DM_eyemove_squashed.txt', 'w') as dm_file:
-        #     for item in dm_output:
-        #         dm_file.write("%s\n" % item)
+                for x in tp_z:
+                    if abs(x) < t_lower:
+                        tp_squashed.append(x)
+                        tp_spikes.append(0)
+                    else:
+                        tp_squashed.append(squash(x, t_lower, t_upper))
+                        tp_spikes.append(1)
 
-        with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/TP_eyemove_squashed.txt', 'w') as tp_file:
-            for item in tp_output:
-                tp_file.write("%s\n" % item)
+                tp_output = [tp_mean + x*tp_std for x in tp_squashed]
 
-        # with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/DM_eyemove_spikes.txt', 'w') as dm_file:
-        #     for item in dm_spikes:
-        #         dm_file.write("%s\n" % item)
+                with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/PEER2_eyemove_squashed.txt', 'w') as tp_file:
+                    for item in tp_output:
+                        tp_file.write("%s\n" % item)
 
-        with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/TP_eyemove_spikes.txt', 'w') as tp_file:
-            for item in tp_spikes:
-                tp_file.write("%s\n" % item)
+                with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/PEER2_eyemove_spikes.txt', 'w') as tp_file:
+                    for item in tp_spikes:
+                        tp_file.write("%s\n" % item)
 
-    except:
+            except:
 
-        continue
+                print('Error with participant ' + sub)
+
+    elif viewtype == 'dm':
+
+        for sub in sub_list:
+
+            try:
+
+                with open(data_path + sub + '/DM_eyemove.txt') as f:
+                    content = f.readlines()
+                dm = [float(x.strip('\n')) for x in content if float(x.strip('\n')) ]
+
+                dm_mean = np.mean(dm)
+                dm_std = np.std(dm)
+
+                dm_z = [(x-dm_mean)/dm_std for x in dm]
+
+                t_upper = 4.0
+                t_lower = 2.5
+
+                dm_squashed = []
+                dm_spikes = []
+
+                for x in dm_z:
+                    if abs(x) < t_lower:
+                        dm_squashed.append(x)
+                        dm_spikes.append(0)
+                    else:
+                        dm_squashed.append(squash(x, t_lower, t_upper))
+                        dm_spikes.append(1)
 
 
+                dm_output = [dm_mean + x*dm_std for x in dm_squashed]
+
+                with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/DM_eyemove_squashed_updated.txt', 'w') as dm_file:
+                    for item in dm_output:
+                        dm_file.write("%s\n" % item)
 
 
-#################################### Eye Tracking Analysis
+                with open('/data2/Projects/Lei/Peers/Prediction_data/' + sub + '/DM_eyemove_spikes_updated.txt', 'w') as dm_file:
+                    for item in dm_spikes:
+                        dm_file.write("%s\n" % item)
 
 
-# sample_list_with_both_et_and_peer = ['sub-5743805', 'sub-5783223']
-# sub_list_with_et_and_peer
-# subset_list = ['sub-5161062', 'sub-5127994', 'sub-5049983', 'sub-5036745', 'sub-5002891', 'sub-5041416']
+            except:
+
+                print('Error with participant ' + sub)
+
 
 corr_vals = []
 
@@ -1976,81 +2145,6 @@ plt.show()
 
 
 
-et_list = ['sub-5002891','sub-5016867','sub-5028550','sub-5032610','sub-5036745','sub-5041416',
- 'sub-5049983',
- 'sub-5127994',
- 'sub-5161062',
- 'sub-5162937',
- 'sub-5169363',
- 'sub-5190972',
- 'sub-5206511',
- 'sub-5219925',
- 'sub-5227193',
- 'sub-5231865',
- 'sub-5238801',
- 'sub-5249438',
- 'sub-5266756',
- 'sub-5284922',
- 'sub-5291254',
- 'sub-5291284',
- 'sub-5310336',
- 'sub-5319102',
- 'sub-5342081',
- 'sub-5375165',
- 'sub-5378545',
- 'sub-5396885',
- 'sub-5397290',
- 'sub-5422296',
- 'sub-5422890',
- 'sub-5465986',
- 'sub-5472150',
- 'sub-5476502',
- 'sub-5484500',
- 'sub-5505585',
- 'sub-5506824',
- 'sub-5531229',
- 'sub-5534291',
- 'sub-5536087',
- 'sub-5552032',
- 'sub-5565519',
- 'sub-5569056',
- 'sub-5574873',
- 'sub-5593729',
- 'sub-5601764',
- 'sub-5617898',
- 'sub-5630057',
- 'sub-5631924',
- 'sub-5642131',
- 'sub-5652036',
- 'sub-5659524',
- 'sub-5669325',
- 'sub-5673128',
- 'sub-5730047',
- 'sub-5730803',
- 'sub-5743805',
- 'sub-5755188',
- 'sub-5755327',
- 'sub-5773707',
- 'sub-5783223',
- 'sub-5794133',
- 'sub-5797959',
- 'sub-5808453',
- 'sub-5814325',
- 'sub-5814978',
- 'sub-5820160',
- 'sub-5824845',
- 'sub-5837180',
- 'sub-5844932',
- 'sub-5852696',
- 'sub-5858221',
- 'sub-5865523',
- 'sub-5865707',
- 'sub-5920995',
- 'sub-5931672',
- 'sub-5942168',
- 'sub-5982802',
- 'sub-5984037',
- 'sub-5986705']
 
 def individual_series(peer_list, et_list):
 
@@ -2136,19 +2230,6 @@ et_mean_series, peer_mean_series = mean_series(sub_list, et_list)
 
 #### Create mean fixation series for PEER and ET gaze locations
 
-
-sub_np5 = ['sub-5161062',
- 'sub-5190972',
- 'sub-5249438',
- 'sub-5266756',
- 'sub-5422296',
- 'sub-5783223',
- 'sub-5808453',
- 'sub-5814978',
- 'sub-5844932',
- 'sub-5858221']
-
-
 def compare_individual_and_mean_series(et_individual_series, et_mean_series, peer_individual_series, peer_mean_series, plot=False):
 
     sub_performance = {}
@@ -2171,6 +2252,224 @@ def compare_individual_and_mean_series(et_individual_series, et_mean_series, pee
 
     return sub_performance
 
+def compare_et_w_peer_and_et_w_et(et_list, dir_='x'):
+
+    from itertools import combinations
+
+    dir_ = dir_ + str('_pred')
+
+    fixation_series_dict = {}
+
+    print('Create dictionary with fixation series for ET and PEER')
+
+
+    for sub in et_list:
+
+        if sub not in bad_sub:
+
+            et_series = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/et_device_pred.csv')[dir_]
+            peer_series = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_tp_predictions.csv')[dir_]
+
+            fixation_series_dict[str(sub)] = {'et': et_series, 'peer': peer_series}
+
+    print('Calculate within and without correlation values')
+
+    combinations_list = combinations(list(fixation_series_dict.keys()), 2)
+
+    correlation_dict = {'wi': [], 'wo': []}
+
+    for sub in fixation_series_dict.keys():
+
+        corr_val1 = pearsonr(fixation_series_dict[sub]['et'], fixation_series_dict[sub]['peer'])[0]
+
+        correlation_dict['wi'].append(corr_val1)
+
+    for sub1, sub2 in combinations_list:
+
+        corr_val2 = pearsonr(fixation_series_dict[sub1]['et'], fixation_series_dict[sub2]['et'])[0]
+
+        correlation_dict['wo'].append(corr_val2)
+
+    wi_label = ['Within' for x in range(len(correlation_dict['wi']))]
+    wo_label = ['Between' for x in range(len(correlation_dict['wo']))]
+
+    df_dict = {'x': np.concatenate([correlation_dict['wi'], correlation_dict['wo']]),
+               '': np.concatenate([wi_label, wo_label]),
+               'x_ax': ['Naturalistic Viewing' for x in range(len(correlation_dict['wi']) + len(correlation_dict['wo']))]}
+
+    df = pd.DataFrame.from_dict(df_dict)
+
+    sns.set()
+    plt.title('Comparing same-subject ET vs. PEER and between-subject ET vs. ET')
+    sns.violinplot(x='x_ax', y='x', hue='', data=df, split=True,
+                   inner='quart', palette={'Within': 'b', 'Between': 'y'})
+    plt.show()
+
+    return df
+
+
+
+
+
+def create_corr_matrix_et_peer(et_list, dir_='x_pred'):
+
+    corr_matrix_tp_x = []
+
+    part_count = 0
+
+    for sub in et_list:
+
+        if sub not in bad_sub:
+
+            peer_x = np.array(pd.read_csv(resample_path + sub + '/gsr0_train1_model_tp_predictions.csv')[dir_])
+            et_x = np.array(pd.read_csv(resample_path + sub + '/et_device_pred.csv')['x_pred'])
+
+            if len(peer_x) == len(et_x):
+
+                if np.isnan(pearsonr(peer_x, et_x)[0]):
+
+                    print(sub, pearsonr(peer_x, et_x)[0])
+
+                if np.isnan(pearsonr(peer_x, et_x)[0]) != True:
+
+                        part_count += 1
+
+                        print(part_count)
+
+                        corr_matrix_tp_x.append(np.array(peer_x))
+                        corr_matrix_tp_x.append(np.array(et_x))
+
+    print(part_count)
+
+    output = np.corrcoef(corr_matrix_tp_x)
+    print(output)
+    pcolor(output)
+    colorbar()
+    show()
+
+    within = []
+    between = []
+
+    for num1 in range(len(output[0])):
+
+        for num2 in range(len(output[0])):
+
+            if (abs(num1 - num2) <= 1) and (num1 != num):
+
+                wi_corr = output[num1][num2]
+
+                if wi_corr != 1.0:
+
+                    within.append(wi_corr)
+
+            elif (abs(num1 - num2) > 1) and (num1 != num):
+
+                bn_corr = output[num1][num2]
+                between.append(bn_corr)
+
+    wi_label = ['Within' for x in range(len(within))]
+    wo_label = ['Between' for x in range(len(between))]
+
+    df_dict = {}
+
+    df_dict = {'x': np.concatenate([within, between]),
+               '': np.concatenate([wi_label, wo_label]),
+               'x_ax': ['Naturalistic Viewing' for x in range(len(within) + len(between))]}
+
+    df = pd.DataFrame.from_dict(df_dict)
+
+    sns.set()
+    sns.violinplot(x='x_ax', y='x', hue='', data=df, split=True,
+                   inner='quart')
+    plt.show()
+
+
+
+####
+
+
+def create_df_containing_within_without_separation(matrix_x, matrix_y):
+
+    wi_ss_x, wo_ss_x = separate_grouping(matrix_x)
+    wi_ss_y, wo_ss_y = separate_grouping(matrix_y)
+
+    wi_label = ['Within' for x in range(len(wi_ss_x))]
+    wo_label = ['Between' for x in range(len(wo_ss_x))]
+
+    df_dict = {'x': np.concatenate([wi_ss_x, wo_ss_x]), 'y': np.concatenate([wi_ss_y, wo_ss_y]),
+               '': np.concatenate([wi_label, wo_label]),
+               'x_ax': ['Naturalistic Viewing' for x in range(len(wi_ss_x) + len(wo_ss_x))]}
+
+    df = pd.DataFrame.from_dict(df_dict)
+
+    return df, wi_ss_x, wo_ss_x, wi_ss_y, wo_ss_y
+
+# within_without_df, wi_ss_x, wo_ss_x, wi_ss_y, wo_ss_y = create_df_containing_within_without_separation(corr_matrix_x, corr_matrix_y)
+
+
+def plot_within_without_groups(df, dir_='x'):
+
+    sns.set()
+    plt.title('Within and Between Movie Correlation Discriminability in ' + dir_)
+    sns.violinplot(x='x_ax', y=dir_, hue='', data=df, split=True,
+                   inner='quart', palette={'Within': 'b', 'Between': 'y'})
+    plt.show()
+
+#####
+
+
+def create_corr_matrix(sub_list, dir_='x_pred'):
+
+    corr_matrix = []
+
+    count = 0
+
+    for sub in sub_list:
+
+        try:
+
+            if count == 0:
+
+                expected_value = len(pd.read_csv(resample_path + sub + '/tppredictions.csv')['x_pred'])
+                count += 1
+
+            tp_x = np.array(pd.read_csv(resample_path + sub + '/gsr0_train1_model_tp_predictions.csv')[dir_])
+            dm_x = np.array(pd.read_csv(resample_path + sub + '/gsr0_train1_model_dm_predictions.csv')[dir_][:250])
+
+            if (len(tp_x) == expected_value) & (len(dm_x) == expected_value):
+
+                corr_matrix.append(tp_x)
+
+        except:
+
+            continue
+
+    for sub in sub_list:
+
+        try:
+
+            tp_x = np.array(pd.read_csv(resample_path + sub + '/gsr0_train1_model_tp_predictions.csv')[dir_])
+            dm_x = np.array(pd.read_csv(resample_path + sub + '/gsr0_train1_model_dm_predictions.csv')[dir_][:250])
+
+            if (len(tp_x) == expected_value) & (len(dm_x) == expected_value):
+                corr_matrix.append(dm_x)
+
+        except:
+
+            continue
+
+    corr_matrix_x = np.ma.corrcoef(corr_matrix)
+
+    return corr_matrix_x
+
+def plot_correlation_matrix(correlation_matrix, dir_='x'):
+    pcolor(correlation_matrix)
+    plt.title('Correlation Matrix for TP and DM in x')
+    colorbar()
+    plt.savefig('/home/json/Desktop/peer_figures/correlation_matrix_svm_y.png', dpi=600)
+    show()
+
+
 sub_performance = compare_individual_and_mean_series(et_individual_series, et_mean_series, peer_individual_series, peer_mean_series)
 
 x_axis = np.linspace(0, len(et_individual_series[sub]['x']), len(et_individual_series[sub]['x']))
@@ -2181,18 +2480,14 @@ def plot_fixation_series_comparison(sub, dim='x', datatype='peer'):
     plt.plot(x_axis, peer_individual_series[sub][dim], 'r-', label='Individual')
     plt.plot(x_axis, peer_mean_series[dim], 'b-', label='Mean')
     plt.legend()
-    plt.title(sub + ' for PEER with correlation value ' + str(sub_performance[sub][datatype][dim]))
+    plt.title(sub + ' for ' + datatype + ' with correlation value ' + str(sub_performance[sub][datatype][dim]))
     # plt.savefig('/home/json/Desktop/peer/et_peer_comparison/bad_et_mean/' + datatype + '_' + sub + '.png', dpi=600)
     plt.show()
 
 
-for sub in list(sub_performance.keys())[:5]:
+for sub in list(sub_performance.keys())[:10]:
 
-    plot_fixation_series_comparison(sub, dim='x', datatype='peer')
-
-
-
-
+    plot_fixation_series_comparison(sub, dim='x', datatype='et')
 
 
 x_et = []
@@ -2219,6 +2514,66 @@ ax = sns.swarmplot(x='index', y='y_peer', data=swarm_df)
 ax.set(title='PEER for Individual vs. Mean in y')
 plt.savefig('/home/json/Desktop/peer/et_peer_comparison/et_peer_mean_corr_swarm/PEER_y.png', dpi=600)
 plt.show()
+
+
+plt.figure()
+plt.scatter(x_targets, y_targets, label='Calibration Points')
+plt.title('Calibration Protocol')
+plt.xlabel('Monitor Width (px)')
+plt.ylabel('Monitor Height (px)')
+plt.savefig('/home/json/Desktop/peer_figures/calibration.png', dpi=600)
+plt.show()
+
+
+
+
+fixations = pd.read_csv('stim_vals.csv')
+x_targets = np.tile(np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2, 1)
+y_targets = np.tile(np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2, 1)
+
+sub = 'sub-5637071'
+
+temp_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_calibration_predictions.csv')
+
+x_pred = temp_df['x_pred']
+y_pred = temp_df['y_pred']
+
+ind_var = np.linspace(0, len(x_pred) - 1, len(x_pred))
+
+plt.figure()
+plt.subplot(211)
+plt.plot(ind_var, x_pred, label='PEER')
+plt.ylabel('Horizontal Position (px)')
+plt.plot(ind_var, x_targets, 'k', label='Targets')
+plt.subplot(212)
+plt.plot(ind_var, y_pred, label='PEER')
+plt.plot(ind_var, y_targets, 'k', label='Targets')
+plt.xlabel('TR')
+plt.ylabel('Vertical Position (px)')
+plt.legend()
+# plt.savefig('/home/json/Desktop/peer_figures/single_subject_P')
+plt.show()
+
+
+
+for sub in sub_list:
+
+    try:
+
+        temp_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')
+
+        x_corr = temp_df['corr_x'][0]
+        y_corr = temp_df['corr_y'][0]
+
+        if (x_corr > .95) and (y_corr) > .95:
+
+            print(sub, x_corr, y_corr)
+
+    except:
+
+        print(sub)
+
+
 
 
 

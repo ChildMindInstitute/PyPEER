@@ -52,117 +52,73 @@ def fig_one():
     x_dist_1 = []
     x_dist_3 = []
     x_dist_13 = []
-    x_dist_1gsr = []
+    
+    y_dist_1 = []
+    y_dist_3 = []
+    y_dist_13 = []
     
     for sub in sub_list:
         
         corr_x_1 = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_x'][0]
         corr_x_3 = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train3_model_parameters.csv')['corr_x'][0]
         corr_x_13 = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train13_model_parameters.csv')['corr_x'][0]
-        corr_gsr = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_x'][0]
+        
+        corr_y_1 = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_x'][0]
+        corr_y_3 = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train3_model_parameters.csv')['corr_x'][0]
+        corr_y_13 = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train13_model_parameters.csv')['corr_x'][0]     
         
         x_dist_1.append(corr_x_1)
         x_dist_3.append(corr_x_3)
         x_dist_13.append(corr_x_13)
-        x_dist_1gsr.append(corr_gsr)
+        
+        y_dist_1.append(corr_y_1)
+        y_dist_3.append(corr_y_3)
+        y_dist_13.append(corr_y_13)
+    
+    ###############################################################
     
     x_dist_1 = [x for x in x_dist_1 if ~np.isnan(x)]
     x_dist_3 = [x for x in x_dist_3 if ~np.isnan(x)]
     x_dist_13 = [x for x in x_dist_13 if ~np.isnan(x)]
-    x_dist_1gsr = [x for x in x_dist_1gsr if ~np.isnan(x)]
     
-    volume_censor_df = pd.read_csv('/home/json/Desktop/peer/all_censored_corr.csv')
-    x_dist_vc = list(volume_censor_df.x_censor)
+    y_dist_1 = [x for x in y_dist_1 if ~np.isnan(x)]
+    y_dist_3 = [x for x in y_dist_3 if ~np.isnan(x)]
+    y_dist_13 = [x for x in y_dist_13 if ~np.isnan(x)]
     
-    plt.figure(figsize=(14, 7))
-    plt.subplot(121)
-    x_values, x_base = np.histogram(x_dist, bins=40)
-    x_values = [0] + list(np.flip(x_values, 0)) + [0]
-    x_base = [1] + list(np.flip(x_base, 0))
-    x_cumulative = np.cumsum(x_values)
-    
-    plt.plot(x_base[:-1] + [-.6], x_cumulative/np.max(x_cumulative), c='blue', label='x-direction')
-    y_values, y_base = np.histogram(y_dist, bins=40)
-    y_values = [0] + list(np.flip(y_values, 0)) + [0]
-    y_base = [1] + list(np.flip(y_base, 0))
-    y_cumulative = np.cumsum(y_values)
-    
-    plt.plot(y_base[:-1] + [-.6], y_cumulative/np.max(y_cumulative), c='green', label='y-direction')
-    plt.title("PEER1 Accuracy")
-    plt.xlabel("Pearson's r")
-    plt.ylabel("Cumulative Density")
-    plt.legend(loc=2)
-    plt.ylim([-.05, 1.05])
-    plt.xlim([1.05, -.6])
-    
-    plt.subplot(122)
-        
-    x_1_values, x_1_base = np.histogram(x_dist_1, bins=40)
-    x_1_values = [0] + list(np.flip(x_1_values, 0)) + [0]
-    x_1_base = [1] + list(np.flip(x_1_base, 0))
-    
-    x_1_cumulative = np.cumsum(x_1_values)
-    plt.plot(x_1_base[:-1] + [-.6], x_1_cumulative/np.nanmax(x_1_cumulative), c='blue', label='PEER1')
-    
-    x_3_values, x_3_base = np.histogram(x_dist_3, bins=40)
-    x_3_values = [0] + list(np.flip(x_3_values, 0)) + [0]
-    x_3_base = [1] + list(np.flip(x_3_base, 0))
-    
-    x_3_cumulative = np.cumsum(x_3_values)
-    plt.plot(x_3_base[:-1] + [-.6], x_3_cumulative/np.nanmax(x_3_cumulative), c='red', label='PEER3_')
-    
-    x_13_values, x_13_base = np.histogram(x_dist_13, bins=40)
-    x_13_values = [0] + list(np.flip(x_13_values, 0)) + [0]
-    x_13_base = [1] + list(np.flip(x_13_base, 0))
-    x_13_cumulative = np.cumsum(x_13_values)
-    
-    plt.plot(x_13_base[:-1] + [-.6], x_13_cumulative/np.nanmax(x_13_cumulative), c='purple', label='PEER1&3')
-    
-    plt.title("Comparison of Model Accuracy by Training Set")
-    plt.xlabel("Pearson's r")
-    plt.ylabel("Cumulative Density")
-    plt.legend(loc=2)
-    plt.ylim([-.05, 1.05])
-    plt.xlim([1.05, -.6])
-    plt.savefig('/home/json/Desktop/manuscript_figures/fig1.png', dpi=600)
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')
+    plt.title('PEER1 Accuracy', weight='bold', fontsize=16)
+    plt.boxplot([np.array(x_dist), np.array(y_dist)])
+    plt.xticks([1, 2], ['x-direction', 'y-direction'], weight='bold')
+    plt.ylim([-.25, 1.05])
+    plt.ylabel("Pearson's r", weight='bold')
+    plt.tight_layout()
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig1a.png', dpi=600)
     plt.show()
     
-#    plt.subplot(133)
-#    
-#    x_1_values, x_1_base = np.histogram(x_dist_1, bins=40)
-#    x_1_values = [0] + list(np.flip(x_1_values, 0)) + [0]
-#    x_1_base = [1] + list(np.flip(x_1_base, 0))
-#    
-#    x_1_cumulative = np.cumsum(x_1_values)
-#    plt.plot(x_1_base[:-1] + [-.6], x_1_cumulative/np.nanmax(x_1_cumulative), c='blue', label='PEER1_r')
-#    
-#    x_values_vc, x_base_vc = np.histogram(x_dist_vc, bins=40)
-#
-#    x_values_vc = [0] + list(np.flip(x_values_vc, 0)) + [0]
-#    x_base_vc = [1] + list(np.flip(x_base_vc, 0))
-#    x_cumulative_vc = np.cumsum(x_values_vc)
-#    
-#    plt.plot(x_base_vc[:-1] + [-.6], x_cumulative_vc/np.max(x_cumulative_vc), c='magenta', label='PEER1VC_r')    
-#    
-#    x_1gsr_values, x_1gsr_base = np.histogram(x_dist_1gsr, bins=40)
-#    x_1gsr_values = [0] + list(np.flip(x_1gsr_values, 0)) + [0]
-#    x_1gsr_base = [1] + list(np.flip(x_1gsr_base, 0))
-#    x_1gsr_cumulative = np.cumsum(x_1gsr_values)
-#    
-#    plt.plot(x_1gsr_base[:-1] + [-.6], x_1gsr_cumulative/np.nanmax(x_1gsr_cumulative), '-', c='black', label='PEER1GSR_r')
-#        
-#    plt.title("Effects of Pre-Processing on PEER1 Accuracy")
-#    plt.xlabel("Pearson's r")
-#    plt.ylabel("Cumulative Density")
-#    plt.legend(loc=2)
-#    plt.ylim([-.05, 1.05])
-#    plt.xlim([1.05, -.6])
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')
+    plt.title('Accuracy by Model (X-Direction)', weight='bold', fontsize=16)
+    plt.boxplot([np.array(x_dist_1), np.array(x_dist_3), np.array(x_dist_13)])
+    plt.xticks([1, 2, 3], ['PEER1', 'PEER3', 'PEER1&3'], weight='bold')   
+    plt.ylim([-.25, 1.05])
+    plt.ylabel("Pearson's r", weight='bold')
+    plt.tight_layout()
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig1b.png', dpi=600)
+    plt.show()
     
-    #plt.savefig('/home/json/Desktop/manuscript_figures/fig1.png', dpi=600)
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')
+    plt.title('Accuracy by Model (Y-Direction)', weight='bold', fontsize=16)
+    plt.boxplot([np.array(y_dist_1), np.array(y_dist_3), np.array(y_dist_13)])
+    plt.xticks([1, 2, 3], ['PEER1', 'PEER3', 'PEER1&3'], weight='bold')
+    plt.ylim([-.25, 1.05])
+    plt.ylabel("Pearson's r", weight='bold')
+    plt.tight_layout()
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig1c.png', dpi=600)
+    plt.show()
     
     
-
-
 def training_optimization_paired_ttest():  
     
     sub_list = pd.DataFrame.from_csv('/home/json/Desktop/peer/phenotypes_full.csv').index.tolist()
@@ -307,12 +263,14 @@ def fig_two():
 
     x_spacing = len(x_hm[0])
     
-    plt.figure()
-    plt.subplot(221)
-    plt.title('Predictions Ordered by Mean FD')
-    ax = sns.heatmap(x_hm, cmap=cscheme, xticklabels=False, yticklabels=False, cbar=False)
-    ax.set_ylabel('Subjects')
-    ax.set_xlabel('Volumes')
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')
+    plt.title('Predicted Time Series for\nCalibration (X-Direction)', weight='bold', fontsize=16)
+    ax = sns.heatmap(x_hm, cmap=cscheme, xticklabels=False, yticklabels=False, cbar=True)
+    ax.set_ylabel('Subjects Ordered by Framewise Displacement', weight='bold')
+    ax.set_xlabel('Time (Volumes)', weight='bold')
+    plt.savefig('/home/json/Desktop/manuscript_figures/cbar_x.png', dpi=600)
+    plt.show()
     
     ############
     # Age
@@ -391,36 +349,96 @@ def fig_two():
     x_hm = np.stack(x_stack)
 
     x_spacing = len(x_hm[0])
-    
-    plt.subplot(222)
-    plt.title('Predictions Ordered by Age')
+
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')
+    plt.title('Predicted Time Series for\nCalibration (X-Direction)', weight='bold', fontsize=16)
     ax = sns.heatmap(x_hm, cmap=cscheme, xticklabels=False, yticklabels=False, cbar=False)
-    ax.set_ylabel('Subjects')
-    ax.set_xlabel('Volumes')
+    ax.set_ylabel('Subjects Ordered by Age', weight='bold')
+    ax.set_xlabel('Time (Volumes)', weight='bold')
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig2b.png', dpi=600)
+    plt.show()
     
     
     ##### Linear Regression
     
     df = pd.DataFrame.from_csv('/home/json/Desktop/peer/phenotypes_full.csv')
     
-    plt.subplot(223)
-    plt.title('Impact of Mean FD')
-    ax = sns.regplot(x='Scan1_meanfd', y='corr_x', data=df)
-    ax.set_ylabel("Pearson's r")
-    ax.set_xlabel('Mean FD')
-    plt.ylim([-.5, 1.05])
-    
-    plt.subplot(224)
-    plt.title('Impact of Age')
-    ax = sns.regplot(x='age', y='corr_x', data=df)
-    ax.set_ylabel("Pearson's r")
-    ax.set_xlabel('Age')
-    plt.ylim([-.5, 1.05])    
-    plt.tight_layout()
-    
-    plt.savefig('/home/json/Desktop/manuscript_figures/fig2.png', dpi=600)    
-    
+    lowess = sm.nonparametric.lowess
+
+    fd_effects = lowess(df.corr_x.tolist(), df.Scan1_meanfd.tolist())
+
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')
+    legend_properties = {'weight': 'bold'}
+    plt.title('Impact of Mean FD on Accuracy (X-Direction)', weight='bold', fontsize=16)
+    ax = sns.regplot(x='Scan1_meanfd', y='corr_x', data=df, fit_reg=False)
+    ax.set_ylabel("Pearson's r", weight='bold')
+    ax.set_xlabel('Mean Framewise Displacement', weight='bold')
+    plt.plot(fd_effects[:, 0], fd_effects[:, 1], 'r', label='Lowess Smoothing')
+    plt.ylim([-.25, 1.05])
+    plt.xlim([0, 4.1])
+    plt.legend(prop=legend_properties)
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig2c.png', dpi=600)
     plt.show()
+    
+    age_effects = lowess(df.corr_x.tolist(), df.age.tolist())
+    
+    plt.figure(figsize=(6, 6))
+    legend_properties = {'weight': 'bold'}
+    plt.rc('font', weight='bold')
+    plt.title('Impact of Age on Accuracy (X-Direction)', weight='bold', fontsize=16)
+    ax = sns.regplot(x='age', y='corr_x', data=df, fit_reg=False)
+    ax.set_ylabel("Pearson's r", weight='bold')
+    ax.set_xlabel('Age', weight='bold')
+    plt.plot(age_effects[:, 0], age_effects[:, 1], 'r', label='Lowess Smoothing')
+    plt.ylim([-.25, 1.05])
+    plt.xlim([4.9, 21.1])
+    plt.legend(prop=legend_properties)
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig2d.png', dpi=600)
+    plt.show()
+    
+    
+    ############################################
+    # Panel C
+    
+    df = pd.DataFrame.from_csv('/home/json/Desktop/peer/phenotypes_full.csv')
+    sub_list = df.index.tolist()
+
+    x_norm = []    
+    x_gs = []
+    
+    y_norm = []
+    y_gs = []
+    
+    for sub in sub_list:
+        
+        x_norm.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_x'][0])
+        y_norm.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_y'][0])
+
+        x_gs.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_x'][0])
+        y_gs.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_y'][0])
+
+    
+    df_dict = {'x_norm': x_norm, 'x_gs': x_gs, 'y_norm': y_norm, 'y_gs': y_gs}    
+    df = pd.DataFrame.from_dict(df_dict)
+    
+    x_t, x_p = ttest_rel(df.x_norm, df.x_gs)
+    y_t, y_p = ttest_rel(df.y_norm, df.y_gs)
+    
+    print(x_t, x_p)
+    print(y_t, y_p)
+    
+    vc_df = pd.read_csv('/home/json/Desktop/peer/all_censored_corr.csv')
+    
+    x_t, x_p = ttest_rel(vc_df.x_raw, vc_df.x_censor)
+    y_t, y_p = ttest_rel(vc_df.y_raw, vc_df.y_censor)
+    
+    print(x_t, x_p)
+    print(y_t, y_p)
+
+
+
     
 
 
@@ -467,104 +485,7 @@ def phenotype_motion():
     outlier_df = df[(df.corr_x < 0) & (df.Scan1_meanfd < .2)][['corr_x', 'Scan1_meanfd', 'Scan2_meanfd']]
 
 
-
 def fig_three():
-    
-    df = pd.DataFrame.from_csv('/home/json/Desktop/peer/phenotypes_full.csv')
-    sub_list = df.index.tolist()
-
-    x_norm = []    
-    x_gs = []
-    
-    y_norm = []
-    y_gs = []
-    
-    for sub in sub_list:
-        
-        x_norm.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_x'][0])
-        y_norm.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_y'][0])
-
-        x_gs.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_x'][0])
-        y_gs.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_y'][0])
-
-    
-    df_dict = {'x_norm': x_norm, 'x_gs': x_gs, 'y_norm': y_norm, 'y_gs': y_gs}    
-    df = pd.DataFrame.from_dict(df_dict)
-    
-    x_t, x_p = ttest_rel(df.x_norm, df.x_gs)
-    y_t, y_p = ttest_rel(df.y_norm, df.y_gs)
-    
-    print(x_t, x_p)
-    print(y_t, y_p)
-    
-    vc_df = pd.read_csv('/home/json/Desktop/peer/all_censored_corr.csv')
-    
-    x_t, x_p = ttest_rel(vc_df.x_raw, vc_df.x_censor)
-    y_t, y_p = ttest_rel(vc_df.y_raw, vc_df.y_censor)
-    
-    print(x_t, x_p)
-    print(y_t, y_p)
-
-    plt.figure(figsize=(10, 11))
-    plt.suptitle('Impact of Preprocessing on Model Accuracy', fontweight='bold')
-    plt.subplot(221)
-    plt.title('x-direction (All Subjects)')
-    plt.boxplot([np.array(df.x_norm), np.array(df.x_gs), np.array(vc_df.x_censor)])
-    plt.xticks([1, 2, 3], ['Original', 'GSR', 'VC'])
-    plt.ylim([-.5, 1.05])
-    plt.subplot(222)
-    plt.title('y-direction (All Subjects)')
-    plt.boxplot([np.array(df.y_norm), np.array(df.y_gs), np.array(vc_df.y_censor)])
-    plt.xticks([1, 2, 3], ['Original', 'GSR', 'VC'])
-    plt.ylim([-.5, 1.05])
-    #plt.savefig('/home/json/Desktop/manuscript_figures/fig3.png', dpi=600)
-    
-    #########
-    # Remove subjects with mean FD < .2
-
-    df = pd.DataFrame.from_csv('/home/json/Desktop/peer/phenotypes_full.csv')
-    df = df[df.Scan1_meanfd > .2]
-    sub_list = df.index.tolist()
-
-    x_norm = []    
-    x_gs = []
-    
-    y_norm = []
-    y_gs = []
-    
-    for sub in sub_list:
-        
-        x_norm.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_x'][0])
-        y_norm.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_y'][0])
-
-        x_gs.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_x'][0])
-        y_gs.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_y'][0])
-
-    
-    df_dict = {'x_norm': x_norm, 'x_gs': x_gs, 'y_norm': y_norm, 'y_gs': y_gs}    
-    df = pd.DataFrame.from_dict(df_dict)
-    
-    x_t, x_p = ttest_rel(df.x_norm, df.x_gs)
-    y_t, y_p = ttest_rel(df.y_norm, df.y_gs)
-    
-    print(x_t, x_p)
-    print(y_t, y_p)
-
-    plt.subplot(223)
-    plt.title('x-direction (Subjects with Mean FD > .2)')
-    plt.boxplot([np.array(df.x_norm), np.array(df.x_gs)])
-    plt.xticks([1, 2], ['Original', 'GSR'])
-    plt.ylim([-.5, 1.05])
-    plt.subplot(224)
-    plt.title('y-direction (Subjects with Mean FD > .2)')
-    plt.boxplot([np.array(df.y_norm), np.array(df.y_gs)])
-    plt.xticks([1, 2], ['Original', 'GSR'])
-    plt.ylim([-.5, 1.05])
-    plt.savefig('/home/json/Desktop/manuscript_figures/fig3.png', dpi=600)
-    plt.show()
-
-
-def fig_four():
     
     sns.set()
     
@@ -595,8 +516,6 @@ def fig_four():
     arr = np.zeros((filename_dict[viewtype]['num_vol']))
     arrx = np.array([-np.round(monitor_width / 2, 0) for x in arr])
     arry = np.array([-np.round(monitor_height / 2, 0) for x in arr])
-        
-    x_hm = []
 
     for sub in sub_list:
 
@@ -635,16 +554,38 @@ def fig_four():
         x_stack.append(arrx)  
     for num in range(int(np.round(len(sub_list) * .05, 0))):
         x_stack.append(avg_series_x)
+        
+    avg_series_y = np.mean(y_stack, axis=0)
+            
+    for num in range(int(np.round(len(sub_list) * .03, 0))):
+        y_stack.insert(0, arry)        
+    for num in range(int(np.round(len(sub_list) * .03, 0))):
+        y_stack.insert(0, avg_series_y)
+    for num in range(int(np.round(len(sub_list) * .03, 0))):
+        y_stack.append(arry)
+    for num in range(int(np.round(len(sub_list) * .05, 0))):
+        y_stack.append(avg_series_y)
 
     x_hm = np.stack(x_stack)
+    y_hm = np.stack(y_stack)
     
-    plt.figure()
-    grid = plt.GridSpec(6, 4)
-    plt.subplot(grid[:2, :])
-    plt.title('The Present')
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')
+    plt.title('Predicted Time Series for\nThe Present (X-Direction)', weight='bold', fontsize=16)
     ax = sns.heatmap(x_hm, cmap=cscheme, xticklabels=False, yticklabels=False, cbar=False)
-    ax.set_xlabel('Volumes')
-    ax.set_ylabel('Subjects')
+    ax.set_xlabel('Time (Volumes)', weight='bold')
+    ax.set_ylabel('Subjects', weight='bold')
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig3a.png', dpi=600)
+    plt.show()
+    
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')
+    plt.title('Predicted Time Series for\nThe Present (Y-Direction)', weight='bold', fontsize=16)
+    ax = sns.heatmap(y_hm, cmap=cscheme, xticklabels=False, yticklabels=False, cbar=True)
+    ax.set_xlabel('Time (Volumes)', weight='bold')
+    ax.set_ylabel('Subjects', weight='bold')
+    plt.savefig('/home/json/Desktop/manuscript_figures/cbar_y.png', dpi=600)
+    plt.show()
     
     ###########
     # DM Heatmap
@@ -673,8 +614,6 @@ def fig_four():
     arr = np.zeros((filename_dict[viewtype]['num_vol']))
     arrx = np.array([-np.round(monitor_width / 2, 0) for x in arr])
     arry = np.array([-np.round(monitor_height / 2, 0) for x in arr])
-        
-    x_hm = []
 
     for sub in sub_list:
 
@@ -713,14 +652,38 @@ def fig_four():
         x_stack.append(arrx)  
     for num in range(int(np.round(len(sub_list) * .05, 0))):
         x_stack.append(avg_series_x)
-
-    x_hm = np.stack(x_stack)    
+        
+    avg_series_y = np.mean(y_stack, axis=0)
     
-    plt.subplot(grid[2:4, :])
-    plt.title('Despicable Me')
+    for num in range(int(np.round(len(sub_list) * .03, 0))):
+        y_stack.insert(0, arry)        
+    for num in range(int(np.round(len(sub_list) * .03, 0))):
+        y_stack.insert(0, avg_series_y)
+    for num in range(int(np.round(len(sub_list) * .03, 0))):
+        y_stack.append(arry)  
+    for num in range(int(np.round(len(sub_list) * .05, 0))):
+        y_stack.append(avg_series_y)
+
+    x_hm = np.stack(x_stack)
+    y_hm = np.stack(y_stack)
+    
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')
+    plt.title('Predicted Time Series for\nDespicable Me (X-Direction)', weight='bold', fontsize=16)
     ax = sns.heatmap(x_hm, cmap=cscheme, xticklabels=False, yticklabels=False, cbar=False)
-    ax.set_xlabel('Volumes')
-    ax.set_ylabel('Subjects')
+    ax.set_xlabel('Time (Volumes)', weight='bold')
+    ax.set_ylabel('Subjects', weight='bold')
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig3c.png', dpi=600)
+    plt.show()
+    
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')    
+    plt.title('Predicted Time Series for\nDespicable Me (Y-Direction)', weight='bold', fontsize=16)
+    ax = sns.heatmap(y_hm, cmap=cscheme, xticklabels=False, yticklabels=False, cbar=False)
+    ax.set_xlabel('Time (Volumes)', weight='bold')
+    ax.set_ylabel('Subjects', weight='bold')
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig3d.png', dpi=600)
+    plt.show()
     
     ###########
     # Movie correlations
@@ -807,8 +770,8 @@ def fig_four():
 
     final_dict_x = {}
 
-    final_dict_x["Pearson's r"] = within_x + between_x
-    final_dict_x[''] = ['Within Movie']*len(within_x) + ['Between Movie']*len(between_x)
+    final_dict_x[" "] = within_x + between_x
+    final_dict_x[''] = ['Same Subject\nDifferent Movie']*len(within_x) + ['Different Subject\nDifferent Movie']*len(between_x)
 
     final_df_x = pd.DataFrame.from_dict(final_dict_x)
     
@@ -826,168 +789,40 @@ def fig_four():
 
     final_dict_y = {}
 
-    final_dict_y["Pearson's r"] = within_y + between_y
-    final_dict_y[''] = ['Within Movie']*len(within_y) + ['Between Movie']*len(between_y)
+    final_dict_y[" "] = within_y + between_y
+    final_dict_y[''] = ['Same Subject\nDifferent Movie']*len(within_y) + ['Different Subject\nDifferent Movie']*len(between_y)
 
     final_df_y = pd.DataFrame.from_dict(final_dict_y)
     
-    plt.subplot(grid[4:, :2])
-    ax = sns.violinplot(x='', y="Pearson's r", data=final_df_x, scale='count')
+    plt.figure(figsize=(8, 8))
+    plt.rc('font', weight='bold')
+    ax = sns.violinplot(x='', y=' ', data=final_df_x, scale='count', weight='bold')
     plt.ylim([-.5, 1])
-    plt.title('Movie Correlations in x-')
-    
-    plt.subplot(grid[4:, 2:])
-    ax = sns.violinplot(x='', y="Pearson's r", data=final_df_y, scale='count')
-    plt.ylim([-.5, 1])
-    plt.title('Movie Correlations in y-')
-
+    plt.title('Movie Discriminability (X-Direction)', weight='bold', fontsize=16)
+    ax.set_xlabel('')
+    ax.set_ylabel('')
+    ax.set_xticklabels(['Different Participant\nSame Movie', 'Different Participant\nDifferent Movie'], weight='bold')
+    ax.set_ylabel("Pearson's r", weight='bold')
     plt.tight_layout()
-    
-    plt.savefig('/home/json/Desktop/manuscript_figures/fig4.png', dpi=600)
-    
-    plt.show()
-
-
- 
-def fig_three_old():
-
-    sub_list = list(pd.read_csv('/home/json/Desktop/peer/qap_naturalistic_mri.csv').subject)
-    
-    expected_value = 250
-
-    pd_dict_x = {}
-    pd_dict_y = {}
-
-    corr_matrix_tp_x = []
-    corr_matrix_tp_y = []
-
-    for sub in sub_list:
-
-        try:
-
-            tp_x = np.array(pd.read_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_tp_predictions.csv')['x_pred'])
-            tp_y = np.array(pd.read_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_tp_predictions.csv')['y_pred'])
-
-            if len(tp_x) == expected_value:
-                corr_matrix_tp_x.append(tp_x)
-                corr_matrix_tp_y.append(tp_y)
-    
-                pd_dict_x[str('tp' + sub)] = tp_x
-                pd_dict_y[str('tp' + sub)] = tp_y
-
-        except:
-
-            continue
-
-    corr_matrix_dm_x = []
-    corr_matrix_dm_y = []
-
-    for sub in sub_list:
-
-        try:
-    
-            dm_x = np.array(pd.read_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_dm_predictions.csv')['x_pred'][:250])
-            dm_y = np.array(pd.read_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_dm_predictions.csv')['y_pred'][:250])
-    
-            if len(dm_x) == expected_value:
-                corr_matrix_dm_x.append(dm_x)
-                corr_matrix_dm_y.append(dm_y)
-    
-                pd_dict_x[str('dm' + sub)] = dm_x
-                pd_dict_y[str('dm' + sub)] = dm_y
-    
-        except:
-    
-            continue
-
-    pd_dict_x['index'] = range(len(pd_dict_x[str('dm' + sub)]))
-    pd_dict_y['index'] = range(len(pd_dict_y[str('dm' + sub)]))
-
-    df_x = pd.DataFrame.from_dict(pd_dict_x)
-    df_x = df_x.set_index('index')
-    df_x = df_x.reindex_axis(sorted(df_x.columns), axis=1)
-    df_y = pd.DataFrame.from_dict(pd_dict_y)
-    df_y = df_y.set_index('index')
-    df_y = df_y.reindex_axis(sorted(df_y.columns), axis=1)
-
-    corr_x = df_x.corr(method='pearson')
-    corr_y = df_y.corr(method='pearson')
-
-    # OPTIONAL - INCLUDE ONLY BELOW DIAGNOAL
-    mask_x = np.zeros_like(corr_x)
-    mask_x[np.triu_indices_from(mask_x)] = True
-    mask_y = np.zeros_like(corr_y)
-    mask_y[np.triu_indices_from(mask_y)] = True
-
-    within_x = []
-    between_x = []
-
-    for item1 in corr_x.columns:
-        for item2 in corr_x.columns:
-            if (item1[:2] == item2[:2]) and (item1 != item2):
-                within_x.append(corr_x[item1][item2])
-            elif (item1[:2] != item2[:2]) and (item1 != item2):
-                between_x.append(corr_x[item1][item2])
-
-    print('Completed x matrix')
-
-    final_dict_x = {}
-
-    final_dict_x["Pearson's r"] = within_x + between_x
-    final_dict_x[''] = ['Within Movie']*len(within_x) + ['Between Movie']*len(between_x)
-
-    final_df_x = pd.DataFrame.from_dict(final_dict_x)
-
-    within_y = []
-    between_y = []
-
-    for item1 in corr_y.columns:
-        for item2 in corr_y.columns:
-            if (item1[:2] == item2[:2]) and (item1 != item2):
-                within_y.append(corr_y[item1][item2])
-            elif (item1[:2] != item2[:2]) and (item1 != item2):
-                between_y.append(corr_y[item1][item2])
-
-    print('Completed y matrix')
-
-    final_dict_y = {}
-
-    final_dict_y["Pearson's r"] = within_y + between_y
-    final_dict_y[''] = ['Within Movie']*len(within_y) + ['Between Movie']*len(between_y)
-
-    final_df_y = pd.DataFrame.from_dict(final_dict_y)
-
-    plt.figure(figsize=(18, 15))
-    plt.suptitle('Movie Discriminability', fontsize=16)
-    plt.subplot(221)
-    plt.title('Correlation Matrices for DM and TP')
-    sns.heatmap(corr_x, cmap='inferno', xticklabels=False, yticklabels=False)
-    plt.xticks([213, 607], ['DM', 'TP'])
-    plt.yticks([213, 607], ['DM', 'TP'])
-
-    plt.subplot(223)
-    sns.heatmap(corr_y, cmap='inferno', xticklabels=False, yticklabels=False)
-    plt.xticks([213, 607], ['DM', 'TP'])
-    plt.yticks([213, 607], ['DM', 'TP'])
-
-    plt.subplot(222)
-    plt.title('Within and Between Movie Correlations')
-    # ax = sns.boxplot(x='', y="Pearson's r", data=final_df_x)
-    ax = sns.violinplot(x='', y="Pearson's r", data=final_df_x, scale='count')
-    plt.ylim([-.5, 1])
-    # ax = sns.stripplot(x='', y="Pearson's r", data=final_df_x, jitter=True)
-    plt.subplot(224)
-    ax = sns.violinplot(x='', y="Pearson's r", data=final_df_y, scale='count')
-    plt.ylim([-.5, 1])
-    plt.savefig('/home/json/Desktop/manuscript_figures/fig3.png', dpi=600)
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig3e.png', dpi=600)
     plt.show()
     
     
     
-    
-    
-    
-def fig_four_old():
+    plt.figure(figsize=(8, 8))
+    plt.rc('font', weight='bold')
+    ax = sns.violinplot(x='', y=" ", data=final_df_y, scale='count', weight='bold')
+    plt.ylim([-.5, 1])
+    plt.title('Movie Discriminability (Y-Direction)', weight='bold', fontsize=16)
+    ax.set_ylabel("Pearson's r", weight='bold')
+    ax.set_xticklabels(['Different Participant\nSame Movie', 'Different Participant\nDifferent Movie'], weight='bold')
+    plt.tight_layout()
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig3f.png', dpi=600)
+    plt.show()
+
+
+
+def fig_four():
 
     viewtype = 'tp'
     cscheme = 'inferno'
@@ -1177,22 +1012,345 @@ def fig_four_old():
 
     x_spacing = len(x_hm[0])
 
-    plt.figure(figsize=(12, 10))
-    grid = plt.GridSpec(6, 8, hspace=.4)
-    plt.subplot(grid[:3, :])
-    plt.title('The Present Fixation Series in x-')
-    ax = sns.heatmap(x_hm, cmap=cscheme, yticklabels=False, xticklabels=False)
-    plt.yticks([200, 505], ['PEER', 'Eye-Tracking'])
-
-    plt.subplot(grid[3:, :])
-    plt.title('The Present Fixation Series in y-')
-    ax = sns.heatmap(y_hm, cmap=cscheme, yticklabels=False)
-    ax.set(xlabel='Volumes')
-    ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
-    ax.xaxis.set_major_locator(ticker.MultipleLocator(base=np.round(x_spacing / 5, 0)))
-    plt.yticks([200, 505], ['PEER', 'Eye-Tracking'])
-    #plt.savefig('/home/json/Desktop/manuscript_figures/fig4.png', dpi=600)
+    plt.figure(figsize=(8, 4))
+    plt.rc('font', weight='bold')
+    plt.title('Fixation Time Series for The Present (X-Direction)', weight='bold', fontsize=16)
+    ax = sns.heatmap(x_hm, cmap=cscheme, yticklabels=False, xticklabels=False, cbar=False)
+    plt.yticks([200, 505], ['PEER', 'Eye    \nTracking'], weight='bold')
+    ax.set_xlabel('Time (Volumes)', weight='bold')
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig4a.png', dpi=600)
     plt.show()
+
+    plt.figure(figsize=(8, 4))
+    plt.rc('font', weight='bold')
+    plt.title('Fixation Time Series for The Present (Y-Direction)', weight='bold', fontsize=16)
+    ax = sns.heatmap(y_hm, cmap=cscheme, yticklabels=False, xticklabels=False, cbar=False)
+    ax.set_xlabel('Time (Volumes)', weight='bold')
+    plt.yticks([200, 505], ['PEER', 'Eye    \nTracking'], weight='bold')
+    ax.set_xlabel('Time (Volumes)', weight='bold')
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig4b.png', dpi=600)
+    plt.show()
+
+
+
+
+def sup_fig_one():
+    
+    params = pd.DataFrame.from_csv('/home/json/Desktop/peer/phenotypes_full.csv')
+    sub_list = params.index.tolist()
+    
+    x_dist = []
+    y_dist = []
+    
+    for sub in sub_list:
+        
+        temp_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')
+        
+        x_rmse = temp_df.rmse_x.tolist()[0]
+        y_rmse = temp_df.rmse_y.tolist()[0]
+        
+        x_dist.append(x_rmse)
+        y_dist.append(y_rmse)
+        
+    
+    
+    plt.figure(figsize=(6, 6))
+    plt.rc('font', weight='bold')
+    plt.title('PEER1 Accuracy using RMSE', weight='bold', fontsize=16)
+    plt.boxplot([np.array(x_dist), np.array(y_dist)])
+    plt.ylim([100, 850])
+    plt.xticks([1, 2], ['X-Direction', 'Y-Direction'], weight='bold')
+    plt.ylabel("RMSE", weight='bold')
+    plt.tight_layout()
+    plt.savefig('/home/json/Desktop/manuscript_figures/sup1.png', dpi=600)
+    plt.show()
+    
+
+
+def sup_fig_two():
+    
+    fixations = pd.read_csv('stim_vals.csv')
+    x_targets = np.repeat(np.array(fixations['pos_x']), 1) * monitor_width / 2
+    y_targets = np.repeat(np.array(fixations['pos_y']), 1) * monitor_height / 2
+
+    plt.figure()
+    plt.rc('font', weight='bold')
+    plt.scatter(list(x_targets), list(y_targets))
+    plt.title('Calibration Stimulus', weight='bold', fontsize=16)
+    plt.xlabel('Horizontal Distance from Center (px)', weight='bold')
+    plt.ylabel('Vertical Distance from Center (px)', weight='bold')
+    plt.xlim([-840, 840])
+    plt.ylim([-525, 525])
+    plt.legend()
+    plt.savefig('/home/json/Desktop/manuscript_figures/sup2.png', dpi=600)
+    plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def fig_three_old():
+    
+    df = pd.DataFrame.from_csv('/home/json/Desktop/peer/phenotypes_full.csv')
+    sub_list = df.index.tolist()
+
+    x_norm = []    
+    x_gs = []
+    
+    y_norm = []
+    y_gs = []
+    
+    for sub in sub_list:
+        
+        x_norm.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_x'][0])
+        y_norm.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_y'][0])
+
+        x_gs.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_x'][0])
+        y_gs.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_y'][0])
+
+    
+    df_dict = {'x_norm': x_norm, 'x_gs': x_gs, 'y_norm': y_norm, 'y_gs': y_gs}    
+    df = pd.DataFrame.from_dict(df_dict)
+    
+    x_t, x_p = ttest_rel(df.x_norm, df.x_gs)
+    y_t, y_p = ttest_rel(df.y_norm, df.y_gs)
+    
+    print(x_t, x_p)
+    print(y_t, y_p)
+    
+    vc_df = pd.read_csv('/home/json/Desktop/peer/all_censored_corr.csv')
+    
+    x_t, x_p = ttest_rel(vc_df.x_raw, vc_df.x_censor)
+    y_t, y_p = ttest_rel(vc_df.y_raw, vc_df.y_censor)
+    
+    print(x_t, x_p)
+    print(y_t, y_p)
+
+    plt.figure(figsize=(10, 11))
+    plt.suptitle('Impact of Preprocessing on Model Accuracy', fontweight='bold')
+    plt.subplot(221)
+    plt.title('x-direction (All Subjects)')
+    plt.boxplot([np.array(df.x_norm), np.array(df.x_gs), np.array(vc_df.x_censor)])
+    plt.xticks([1, 2, 3], ['Original', 'GSR', 'VC'])
+    plt.ylim([-.5, 1.05])
+    plt.subplot(222)
+    plt.title('y-direction (All Subjects)')
+    plt.boxplot([np.array(df.y_norm), np.array(df.y_gs), np.array(vc_df.y_censor)])
+    plt.xticks([1, 2, 3], ['Original', 'GSR', 'VC'])
+    plt.ylim([-.5, 1.05])
+    #plt.savefig('/home/json/Desktop/manuscript_figures/fig3.png', dpi=600)
+    
+    #########
+    # Remove subjects with mean FD < .2
+
+    df = pd.DataFrame.from_csv('/home/json/Desktop/peer/phenotypes_full.csv')
+    df = df[df.Scan1_meanfd > .2]
+    sub_list = df.index.tolist()
+
+    x_norm = []    
+    x_gs = []
+    
+    y_norm = []
+    y_gs = []
+    
+    for sub in sub_list:
+        
+        x_norm.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_x'][0])
+        y_norm.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')['corr_y'][0])
+
+        x_gs.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_x'][0])
+        y_gs.append(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr1_train1_model_parameters.csv')['corr_y'][0])
+
+    
+    df_dict = {'x_norm': x_norm, 'x_gs': x_gs, 'y_norm': y_norm, 'y_gs': y_gs}    
+    df = pd.DataFrame.from_dict(df_dict)
+    
+    x_t, x_p = ttest_rel(df.x_norm, df.x_gs)
+    y_t, y_p = ttest_rel(df.y_norm, df.y_gs)
+    
+    print(x_t, x_p)
+    print(y_t, y_p)
+
+    plt.subplot(223)
+    plt.title('x-direction (Subjects with Mean FD > .2)')
+    plt.boxplot([np.array(df.x_norm), np.array(df.x_gs)])
+    plt.xticks([1, 2], ['Original', 'GSR'])
+    plt.ylim([-.5, 1.05])
+    plt.subplot(224)
+    plt.title('y-direction (Subjects with Mean FD > .2)')
+    plt.boxplot([np.array(df.y_norm), np.array(df.y_gs)])
+    plt.xticks([1, 2], ['Original', 'GSR'])
+    plt.ylim([-.5, 1.05])
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig3.png', dpi=600)
+    plt.show()
+
+ 
+def fig_three_old():
+
+    sub_list = list(pd.read_csv('/home/json/Desktop/peer/qap_naturalistic_mri.csv').subject)
+    
+    expected_value = 250
+
+    pd_dict_x = {}
+    pd_dict_y = {}
+
+    corr_matrix_tp_x = []
+    corr_matrix_tp_y = []
+
+    for sub in sub_list:
+
+        try:
+
+            tp_x = np.array(pd.read_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_tp_predictions.csv')['x_pred'])
+            tp_y = np.array(pd.read_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_tp_predictions.csv')['y_pred'])
+
+            if len(tp_x) == expected_value:
+                corr_matrix_tp_x.append(tp_x)
+                corr_matrix_tp_y.append(tp_y)
+    
+                pd_dict_x[str('tp' + sub)] = tp_x
+                pd_dict_y[str('tp' + sub)] = tp_y
+
+        except:
+
+            continue
+
+    corr_matrix_dm_x = []
+    corr_matrix_dm_y = []
+
+    for sub in sub_list:
+
+        try:
+    
+            dm_x = np.array(pd.read_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_dm_predictions.csv')['x_pred'][:250])
+            dm_y = np.array(pd.read_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_dm_predictions.csv')['y_pred'][:250])
+    
+            if len(dm_x) == expected_value:
+                corr_matrix_dm_x.append(dm_x)
+                corr_matrix_dm_y.append(dm_y)
+    
+                pd_dict_x[str('dm' + sub)] = dm_x
+                pd_dict_y[str('dm' + sub)] = dm_y
+    
+        except:
+    
+            continue
+
+    pd_dict_x['index'] = range(len(pd_dict_x[str('dm' + sub)]))
+    pd_dict_y['index'] = range(len(pd_dict_y[str('dm' + sub)]))
+
+    df_x = pd.DataFrame.from_dict(pd_dict_x)
+    df_x = df_x.set_index('index')
+    df_x = df_x.reindex_axis(sorted(df_x.columns), axis=1)
+    df_y = pd.DataFrame.from_dict(pd_dict_y)
+    df_y = df_y.set_index('index')
+    df_y = df_y.reindex_axis(sorted(df_y.columns), axis=1)
+
+    corr_x = df_x.corr(method='pearson')
+    corr_y = df_y.corr(method='pearson')
+
+    # OPTIONAL - INCLUDE ONLY BELOW DIAGNOAL
+    mask_x = np.zeros_like(corr_x)
+    mask_x[np.triu_indices_from(mask_x)] = True
+    mask_y = np.zeros_like(corr_y)
+    mask_y[np.triu_indices_from(mask_y)] = True
+
+    within_x = []
+    between_x = []
+
+    for item1 in corr_x.columns:
+        for item2 in corr_x.columns:
+            if (item1[:2] == item2[:2]) and (item1 != item2):
+                within_x.append(corr_x[item1][item2])
+            elif (item1[:2] != item2[:2]) and (item1 != item2):
+                between_x.append(corr_x[item1][item2])
+
+    print('Completed x matrix')
+
+    final_dict_x = {}
+
+    final_dict_x["Pearson's r"] = within_x + between_x
+    final_dict_x[''] = ['Within Movie']*len(within_x) + ['Between Movie']*len(between_x)
+
+    final_df_x = pd.DataFrame.from_dict(final_dict_x)
+
+    within_y = []
+    between_y = []
+
+    for item1 in corr_y.columns:
+        for item2 in corr_y.columns:
+            if (item1[:2] == item2[:2]) and (item1 != item2):
+                within_y.append(corr_y[item1][item2])
+            elif (item1[:2] != item2[:2]) and (item1 != item2):
+                between_y.append(corr_y[item1][item2])
+
+    print('Completed y matrix')
+
+    final_dict_y = {}
+
+    final_dict_y["Pearson's r"] = within_y + between_y
+    final_dict_y[''] = ['Within Movie']*len(within_y) + ['Between Movie']*len(between_y)
+
+    final_df_y = pd.DataFrame.from_dict(final_dict_y)
+
+    plt.figure(figsize=(18, 15))
+    plt.suptitle('Movie Discriminability', fontsize=16)
+    plt.subplot(221)
+    plt.title('Correlation Matrices for DM and TP')
+    sns.heatmap(corr_x, cmap='inferno', xticklabels=False, yticklabels=False)
+    plt.xticks([213, 607], ['DM', 'TP'])
+    plt.yticks([213, 607], ['DM', 'TP'])
+
+    plt.subplot(223)
+    sns.heatmap(corr_y, cmap='inferno', xticklabels=False, yticklabels=False)
+    plt.xticks([213, 607], ['DM', 'TP'])
+    plt.yticks([213, 607], ['DM', 'TP'])
+
+    plt.subplot(222)
+    plt.title('Within and Between Movie Correlations')
+    # ax = sns.boxplot(x='', y="Pearson's r", data=final_df_x)
+    ax = sns.violinplot(x='', y="Pearson's r", data=final_df_x, scale='count')
+    plt.ylim([-.5, 1])
+    # ax = sns.stripplot(x='', y="Pearson's r", data=final_df_x, jitter=True)
+    plt.subplot(224)
+    ax = sns.violinplot(x='', y="Pearson's r", data=final_df_y, scale='count')
+    plt.ylim([-.5, 1])
+    plt.savefig('/home/json/Desktop/manuscript_figures/fig3.png', dpi=600)
+    plt.show()
+    
+    
+    
+    
 
 
 
@@ -1449,184 +1607,7 @@ def sup_fig_X():
     
     
     
-    
-    
-    
-    
-    
-    
-def sup_fig_one():
-    
-    sns.set()
-    
-    params = pd.read_csv('model_outputs.csv', index_col='subject', dtype=object)
-    params = params[params.scan_count == '3']
-    sub_list = params.index.tolist()
-    
-    fixations = pd.read_csv('/home/json/Desktop/peer/stim_vals.csv')
-    x_targets = np.repeat(np.array(fixations['pos_x']), 5) * monitor_width / 2
-    y_targets = np.repeat(np.array(fixations['pos_y']), 5) * monitor_height / 2
-    
-    def create_dict_with_rmse_and_corr_values(sub_list):
 
-        """Creates dictionary that contains list of rmse and corr values for all training combinations
-
-        :return: Dictionary that contains list of rmse and corr values for all training combinations
-        """
-
-        file_dict = {'1': '/gsr0_train1_model_parameters.csv',
-                     '3': '/gsr0_train3_model_parameters.csv',
-                     '13': '/gsr0_train13_model_parameters.csv',
-                     '1gsr': '/gsr1_train1_model_parameters.csv'}
-
-        params_dict = {'1': {'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []},
-                       '3': {'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []},
-                       '13': {'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []},
-                       '1gsr': {'corr_x': [], 'corr_y': [], 'rmse_x': [], 'rmse_y': []}}
-
-        for sub in sub_list:
-
-            for train_set in file_dict.keys():
-
-                if os.path.exists('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + file_dict['3']) and (
-                        np.isnan(pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + file_dict['3'])['corr_x'][0]) != True):
-
-                    try:
-
-                        temp_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + file_dict[train_set])
-                        x_corr = temp_df['corr_x'][0]
-                        y_corr = temp_df['corr_y'][0]
-                        x_rmse = temp_df['rmse_x'][0]
-                        y_rmse = temp_df['rmse_y'][0]
-
-                        params_dict[train_set]['corr_x'].append(x_corr)
-                        params_dict[train_set]['corr_y'].append(y_corr)
-                        params_dict[train_set]['rmse_x'].append(x_rmse)
-                        params_dict[train_set]['rmse_y'].append(y_rmse)
-
-                    except:
-
-                        print('Error processing subject ' + sub + ' for ' + train_set)
-
-                else:
-
-                    continue
-
-        return params_dict
-
-    params_dict = create_dict_with_rmse_and_corr_values(sub_list)
-
-    #############
-    x_ax = '1'
-    y_ax = '13'
-
-    val_range = np.linspace(-.6, 1.0, 480)
-    slope, intercept, r_val, p_val, std_error = stats.linregress(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'])
-    r2_val = r_val**2
-    r2_text = 'r2 value: ' + str(r2_val)[:4]
-    r_text = 'r value: ' + str(r_val)[:4]
-
-    plt.figure(figsize=(15, 10))
-    plt.suptitle("Comparing PEER's Predictive Accuracy Based on Training Set", fontsize=16)
-    plt.subplot(2, 3, 1)
-    plt.title('PEER1_r vs PEER1&3_r')
-    plt.xlabel("PEER1_r")
-    plt.ylabel("PEER1&3_r")
-    plt.xlim([-.6, 1.0])
-    plt.ylim([-.6, 1.0])
-    plt.scatter(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'], alpha=.5)
-    plt.plot(val_range, slope * (val_range) + intercept, color='r', label=r_text)
-    plt.plot([-.6, 1], [-.6, 1], '--', color='k', label='Identical')
-    plt.legend(loc=2, prop={'size': 9, 'weight': 'bold'})
-
-    slope, intercept, r_val, p_val, std_error = stats.linregress(params_dict[x_ax]['corr_y'], params_dict[y_ax]['corr_y'])
-    r2_val = r_val**2
-    r2_text = 'r2 value: ' + str(r2_val)[:4]
-    r_text = 'r value: ' + str(r_val)[:4]
-
-    plt.subplot(2, 3, 4)
-    plt.xlabel("PEER1_r")
-    plt.ylabel("PEER1&3_r")
-    plt.xlim([-.6, 1.0])
-    plt.ylim([-.6, 1.0])
-    plt.scatter(params_dict[x_ax]['corr_y'], params_dict[y_ax]['corr_y'], alpha=.5)
-    plt.plot(val_range, slope * (val_range) + intercept, color='r', label=r_text)
-    plt.plot([-.6, 1], [-.6, 1], '--', color='k', label='Identical')
-    plt.legend(loc=2, prop={'size': 9, 'weight': 'bold'})
-
-    #############
-    x_ax = '3'
-    y_ax = '13'
-
-    val_range = np.linspace(-.6, 1.0, 480)
-    slope, intercept, r_val, p_val, std_error = stats.linregress(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'])
-    r2_val = r_val**2
-    r2_text = 'r2 value: ' + str(r2_val)[:4]
-    r_text = 'r value: ' + str(r_val)[:4]
-
-    plt.subplot(2, 3, 2)
-    plt.title('PEER3_r vs PEER1&3_r')
-    plt.xlabel("PEER3_r")
-    plt.ylabel("PEER1&3_r")
-    plt.xlim([-.6, 1.0])
-    plt.ylim([-.6, 1.0])
-    plt.scatter(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'], alpha=.5)
-    plt.plot(val_range, slope * (val_range) + intercept, color='r', label=r_text)
-    plt.plot([-.6, 1], [-.6, 1], '--', color='k', label='Identical')
-    plt.legend(loc=2, prop={'size': 9, 'weight': 'bold'})
-
-    slope, intercept, r_val, p_val, std_error = stats.linregress(params_dict[x_ax]['corr_y'], params_dict[y_ax]['corr_y'])
-    r2_val = r_val**2
-    r2_text = 'r2 value: ' + str(r2_val)[:4]
-    r_text = 'r value: ' + str(r_val)[:4]
-
-    plt.subplot(2, 3, 5)
-    plt.xlabel("PEER3_r")
-    plt.ylabel("PEER1&3_r")
-    plt.xlim([-.6, 1.0])
-    plt.ylim([-.6, 1.0])
-    plt.scatter(params_dict[x_ax]['corr_y'], params_dict[y_ax]['corr_y'], alpha=.5)
-    plt.plot(val_range, slope * (val_range) + intercept, color='r', label=r_text)
-    plt.plot([-.6, 1], [-.6, 1], '--', color='k', label='Identical')
-    plt.legend(loc=2, prop={'size': 9, 'weight': 'bold'})
-
-    #############
-    x_ax = '1'
-    y_ax = '3'
-
-    val_range = np.linspace(-.6, 1.0, 480)
-    slope, intercept, r_val, p_val, std_error = stats.linregress(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'])
-    r2_val = r_val**2
-    r2_text = 'r2 value: ' + str(r2_val)[:4]
-    r_text = 'r value: ' + str(r_val)[:4]
-
-    plt.subplot(2, 3, 3)
-    plt.title('PEER1_r vs PEER3_r')
-    plt.xlabel("PEER1_r")
-    plt.ylabel("PEER3_r")
-    plt.xlim([-.6, 1.0])
-    plt.ylim([-.6, 1.0])
-    plt.scatter(params_dict[x_ax]['corr_x'], params_dict[y_ax]['corr_x'], alpha=.5)
-    plt.plot(val_range, slope * (val_range) + intercept, color='r', label=r_text)
-    plt.plot([-.6, 1], [-.6, 1], '--', color='k', label='Identical')
-    plt.legend(loc=2, prop={'size': 9, 'weight': 'bold'})
-
-    slope, intercept, r_val, p_val, std_error = stats.linregress(params_dict[x_ax]['corr_y'], params_dict[y_ax]['corr_y'])
-    r2_val = r_val**2
-    r2_text = 'r2 value: ' + str(r2_val)[:4]
-    r_text = 'r value: ' + str(r_val)[:4]
-
-    plt.subplot(2, 3, 6)
-    plt.xlabel("PEER1_r")
-    plt.ylabel("PEER3_r")
-    plt.xlim([-.6, 1.0])
-    plt.ylim([-.6, 1.0])
-    plt.scatter(params_dict[x_ax]['corr_y'], params_dict[y_ax]['corr_y'], alpha=.5)
-    plt.plot(val_range, slope * (val_range) + intercept, color='r', label=r_text)
-    plt.plot([-.6, 1], [-.6, 1], '--', color='k', label='Identical')
-    plt.legend(loc=2, prop={'size': 9, 'weight': 'bold'})
-    plt.savefig('/home/json/Desktop/manuscript_figures/sup_fig1.png', dpi=600)
-    plt.show()
 
     
     
@@ -1972,9 +1953,6 @@ def fig_two_old():
     ax.xaxis.set_major_locator(ticker.MultipleLocator(base=np.round(x_spacing/5, 0)))
     #plt.savefig('/home/json/Desktop/manuscript_figures/fig2.png', dpi=600)
     plt.show()
-
-
-
 
 
 

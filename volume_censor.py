@@ -27,9 +27,13 @@ cpac_dir = '/data2/HBNcore/CMI_HBN_Data/MRI/RU/CPAC/output/pipeline_RU_CPAC/'
 eye_mask = nib.load('/data2/Projects/Jake/eye_masks/2mm_eye_corrected.nii.gz')
 eye_mask = eye_mask.get_data()
 
-sub_list = pd.DataFrame.from_csv('/home/json/Desktop/peer/model_outputs.csv').index.tolist()
+sub_list = pd.DataFrame.from_csv('/home/json/Desktop/peer/phenotypes_full.csv').index.tolist()
 
 censor_dict = {'x_censor': [], 'y_censor': [], 'x_raw': [], 'y_raw': []}
+
+df_sub_list = []
+df_x_corr = []
+df_y_corr = []
 
 for sub in sub_list:
     
@@ -106,15 +110,19 @@ for sub in sub_list:
     temp_df = pd.DataFrame.from_csv('/data2/Projects/Jake/Human_Brain_Mapping/' + sub + '/gsr0_train1_model_parameters.csv')
     x_corr = temp_df.corr_x[0]
     y_corr = temp_df.corr_y[0]
+    
+    df_sub_list.append(sub)
+    df_x_corr.append(x_corr_censor)
+    df_y_corr.append(y_corr_censor)
 
-    if ~np.isnan(x_corr_censor) and ~np.isnan(y_corr_censor) and ~np.isnan(x_corr) and ~np.isnan(y_corr):
-
-        censor_dict['x_censor'].append(x_corr_censor)
-        censor_dict['y_censor'].append(y_corr_censor)
-        censor_dict['x_raw'].append(x_corr)
-        censor_dict['y_raw'].append(y_corr)
-        
-censor_df = pd.DataFrame.from_dict(censor_dict)
+#    if ~np.isnan(x_corr_censor) and ~np.isnan(y_corr_censor) and ~np.isnan(x_corr) and ~np.isnan(y_corr):
+#
+#        censor_dict['x_censor'].append(x_corr_censor)
+#        censor_dict['y_censor'].append(y_corr_censor)
+#        censor_dict['x_raw'].append(x_corr)
+#        censor_dict['y_raw'].append(y_corr)
+#        
+#censor_df = pd.DataFrame.from_dict(censor_dict)
 
 sns.set()
 sns.regplot(x='x_censor', y='x_raw', data=censor_df)
