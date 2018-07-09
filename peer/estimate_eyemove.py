@@ -37,6 +37,8 @@ if __name__ == "__main__":
         print('\nPredicting Fixations')
         print('====================================================')
 
+        print('Fixations saved to specified output directory.')
+
         x_fix, y_fix = predict_fixations(xmodel, ymodel, raveled_data)
 
         x_fixname, y_fixname = save_fixations(x_fix, y_fix, xmodel_name, ymodel_name, output_dir)

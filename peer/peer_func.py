@@ -115,7 +115,7 @@ def set_parameters(_configs, new=False):
             if not _motion_threshold:
                 _configs['motion_threshold'] = ".2"
             else:
-                _configs['motion_threshold'] = "0"
+                _configs['motion_threshold'] = _motion_threshold
 
     with open('peer/config.json', 'w') as f:
         json.dump(_configs, f)
@@ -184,7 +184,7 @@ def global_signal_regression(_data, _eye_mask_path):
     return _data
 
 
-def motion_scrub(_ms_filename, _data_dir, _motion_threshold=.2):
+def motion_scrub(_ms_filename, _data_dir, _motion_threshold):
 
     file_path = os.path.abspath(os.path.join(_data_dir, _ms_filename))
 
@@ -276,7 +276,7 @@ def load_model(_output_dir):
 
         for i, model in enumerate(model_selection):
 
-            model_option = str('    {}: {}').format(str(i), model.replace('xmodel', ''))
+            model_option = str('    {}: {}').format(str(i), model.replace('xmodel_', ''))
             options.append(model.replace('xmodel', ''))
             print(model_option)
 
