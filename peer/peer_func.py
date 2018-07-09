@@ -57,6 +57,12 @@ def scaffolding():
 
 
 def set_parameters(_configs, new=False):
+    """This is an example
+
+    :param _configs: Input configs
+    :param new: is this a new file?
+    :return: Updated config file
+    """
 
     if new:
         _configs = {x: "NA" for x in _configs}
