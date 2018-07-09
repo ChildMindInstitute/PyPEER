@@ -1,0 +1,256 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>train_peer &#8212; peer  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for train_peer</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">nibabel</span> <span class="k">as</span> <span class="nn">nib</span>
+<span class="kn">from</span> <span class="nn">sklearn.svm</span> <span class="k">import</span> <span class="n">SVR</span>
+
+<span class="n">data_dir</span> <span class="o">=</span> <span class="s1">&#39;/path/to/data/folder&#39;</span>
+<span class="n">eye_mask_path</span> <span class="o">=</span> <span class="s1">&#39;/eye/mask/path&#39;</span>
+
+
+<div class="viewcode-block" id="load_data"><a class="viewcode-back" href="../source/train_peer.html#train_peer.load_data">[docs]</a><span class="k">def</span> <span class="nf">load_data</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Loads data in NIfTI file format</span>
+
+<span class="sd">    :param filepath: Path to NIfTI file</span>
+<span class="sd">    :return: Data in a pandas dataframe</span>
+
+<span class="sd">    :Example:</span>
+
+<span class="sd">    Hi</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nib_format</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">nib_format</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="global_signal_regression"><a class="viewcode-back" href="../source/train_peer.html#train_peer.global_signal_regression">[docs]</a><span class="k">def</span> <span class="nf">global_signal_regression</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+
+    <span class="n">global_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">eye_mask_path</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="n">regressor_map</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;constant&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="mi">1</span><span class="p">))}</span>
+    <span class="n">regressor_map</span><span class="p">[</span><span class="s1">&#39;global&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">global_mask</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">csv_filename</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+    <span class="k">for</span> <span class="n">rname</span><span class="p">,</span> <span class="n">rval</span> <span class="ow">in</span> <span class="n">regressor_map</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">X</span><span class="p">,</span> <span class="n">rval</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">rval</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)))</span>
+        <span class="n">csv_filename</span> <span class="o">+=</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="n">rname</span>
+
+    <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span>
+
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">global_mask</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">X</span><span class="p">))</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span>
+
+    <span class="n">Y_res</span> <span class="o">=</span> <span class="n">Y</span> <span class="o">-</span> <span class="n">X</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+
+    <span class="n">data</span><span class="p">[</span><span class="n">global_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">Y_res</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="motion_scrubbing"><a class="viewcode-back" href="../source/train_peer.html#train_peer.motion_scrubbing">[docs]</a><span class="k">def</span> <span class="nf">motion_scrubbing</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">high_motion_vector</span><span class="p">):</span>
+
+    <span class="n">censor_index</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">high_motion_vector</span><span class="p">]</span>
+
+    <span class="n">calibration_points_removed</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">num</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]):</span>
+
+        <span class="n">vol_set</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="n">num</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">5</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">censor_index</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">vol_set</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+
+            <span class="n">vect</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="n">vol_set</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vect</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+
+            <span class="n">calibration_points_removed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">num</span><span class="p">)</span>
+
+    <span class="n">x_model</span> <span class="o">=</span> <span class="n">SVR</span><span class="p">(</span><span class="n">kernel</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">,</span> <span class="n">C</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=.</span><span class="mi">01</span><span class="p">)</span>
+    <span class="n">x_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_data</span><span class="p">,</span> <span class="n">x_targets_sub</span><span class="p">)</span>
+    <span class="n">y_model</span> <span class="o">=</span> <span class="n">SVR</span><span class="p">(</span><span class="n">kernel</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">,</span> <span class="n">C</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=.</span><span class="mi">01</span><span class="p">)</span>
+    <span class="n">y_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_data</span><span class="p">,</span> <span class="n">y_targets_sub</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">calibration_points_removed</span></div>
+
+
+
+
+
+
+
+
+
+
+
+
+<span class="c1"># monitor_width = 1680</span>
+<span class="c1"># monitor_height = 1050</span>
+<span class="c1">#</span>
+<span class="c1"># fixations = pd.read_csv(&#39;stim_vals.csv&#39;)</span>
+<span class="c1"># x_targets = np.repeat(np.array(fixations[&#39;pos_x&#39;]), 5) * monitor_width / 2</span>
+<span class="c1"># y_targets = np.repeat(np.array(fixations[&#39;pos_y&#39;]), 1) * monitor_height / 2</span>
+
+
+<span class="c1"># def process_data(filename, gsr_status, volume_censoring, vc_file, TR_per_target):</span>
+<span class="c1">#</span>
+<span class="c1">#     train_data_time_point = []</span>
+<span class="c1">#     train_data_averaged = []</span>
+<span class="c1">#</span>
+<span class="c1">#     file_dir = os.path.join(data_dir, filename)</span>
+<span class="c1">#</span>
+<span class="c1">#     train_data = nib.load(file_dir).get_data()</span>
+<span class="c1">#</span>
+<span class="c1">#     train_data = mean_center_var_norm(train_data)</span>
+<span class="c1">#</span>
+<span class="c1">#     if gsr_status:</span>
+<span class="c1">#</span>
+<span class="c1">#         train_data = gs_regress(train_data)</span>
+<span class="c1">#</span>
+<span class="c1">#     if volume_censoring:</span>
+<span class="c1">#</span>
+<span class="c1">#         censor_index = [x.strip() for x in vc_file]</span>
+<span class="c1">#         calibration_points_removed = []</span>
+<span class="c1">#</span>
+<span class="c1">#         for num in range(train_data.shape[3]):</span>
+<span class="c1">#</span>
+<span class="c1">#             vol_set = [x for x in np.arange(num * 5, (num + 1) * 5) if x not in censor_index]</span>
+<span class="c1">#</span>
+<span class="c1">#             if len(vol_set) != 0:</span>
+<span class="c1">#</span>
+<span class="c1">#                 vect = list(np.average(train_data[:, :, :, vol_set], axis=3).ravel())</span>
+<span class="c1">#                 train_data.append(vect)</span>
+<span class="c1">#</span>
+<span class="c1">#             else:</span>
+<span class="c1">#</span>
+<span class="c1">#                 calibration_points_removed.append(num)</span>
+<span class="c1">#</span>
+<span class="c1">#         x_targets = list(np.delete(np.array(x_targets), calibration_points_removed))</span>
+<span class="c1">#         y_targets = list(np.delete(np.array(y_targets), calibration_points_removed))</span>
+<span class="c1">#</span>
+<span class="c1">#         x_model = SVR(kernel=&#39;linear&#39;, C=100, epsilon=.01)</span>
+<span class="c1">#         x_model.fit(train_data, x_targets_sub)</span>
+<span class="c1">#         y_model = SVR(kernel=&#39;linear&#39;, C=100, epsilon=.01)</span>
+<span class="c1">#         y_model.fit(train_data, y_targets_sub)</span>
+<span class="c1">#</span>
+<span class="c1">#     else:</span>
+<span class="c1">#</span>
+<span class="c1">#         for time_point in range(train_data.shape[3]):</span>
+<span class="c1">#             train_data = train_data[:, :, :, time_point]</span>
+<span class="c1">#             train_data = np.array(train_data.ravel())</span>
+<span class="c1">#             train_data_time_point.append(train_data)</span>
+<span class="c1">#</span>
+<span class="c1">#         for calibration_target in range(train_data.shape[3] / TR_per_target):</span>
+<span class="c1">#             train_data_averaged.append(np.average(train_data_time_point[calibration_target * 5:5*(1+calibration_target)], axis=0))</span>
+<span class="c1">#</span>
+<span class="c1">#     return train_data_averaged</span>
+<span class="c1">#</span>
+<span class="c1">#</span>
+<span class="c1"># def train_svr_model(participant=&#39;name&#39;, gsr_status=False, volume_censoring=False, vc_file=None, TR_per_target=5,</span>
+<span class="c1">#                     fmri_files=[&#39;train_file1&#39;, &#39;train_file2&#39;, &#39;train_file3&#39;]):</span>
+<span class="c1">#</span>
+<span class="c1">#     processed_files = []</span>
+<span class="c1">#</span>
+<span class="c1">#     for filename in fmri_files:</span>
+<span class="c1">#</span>
+<span class="c1">#         processed_data = process_data(filename, gsr_status=gsr_status, volume_censoring=volume_censoring, vc_file = vc_file,</span>
+<span class="c1">#                                       TR_per_target=TR_per_target)</span>
+<span class="c1">#         processed_files.append(processed_data)</span>
+<span class="c1">#</span>
+<span class="c1">#     training_set = [[x for x in file] for file in processed_files]</span>
+<span class="c1"># </span>
+<span class="c1">#     x_model = SVR(kernel=&#39;linear&#39;, C=100, epsilon=.01, verbose=2)</span>
+<span class="c1">#     y_model = SVR(kernel=&#39;linear&#39;, C=100, epsilon=.01, verbose=2)</span>
+<span class="c1">#     x_model.fit(training_set, x_targets*len(processed_files))</span>
+<span class="c1">#     y_model.fit(training_set, y_targets*len(processed_files))</span>
+<span class="c1">#</span>
+<span class="c1">#     pickle.dump(x_model, open(&#39;/output/path/&#39; + participant + &#39;/x_model_gsr&#39; + str(gsr_status) + &#39;.sav&#39;, &#39;wb&#39;))</span>
+<span class="c1">#     pickle.dump(y_model, open(&#39;/output/path/&#39; + participant + &#39;/y_model_gsr&#39; +  + &#39;.sav&#39;, &#39;wb&#39;))</span>
+
+
+
+
+
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Jake Jungwoo Son.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
