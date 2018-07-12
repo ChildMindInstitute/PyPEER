@@ -81,9 +81,9 @@ def set_parameters(_configs, new=False):
             _configs['train_file'] = _train_file
 
     if _configs['test_file'] == 'NA':
-        _test_file = input('Add the name of the file used for testing [movie.nii.gz]: ')
+        _test_file = input('Which file would you like to predict eye movements from? [movie.nii.gz]: ')
         if not _test_file:
-            _configs['test_file'] = 'peer2.nii.gz'
+            _configs['test_file'] = 'movie.nii.gz'
         else:
             _configs['test_file'] = _test_file
 
