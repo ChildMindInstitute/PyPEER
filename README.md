@@ -2,4 +2,4 @@
 Predictive Eye Estimation Regression
 
 ## Demo video
-[![asciicast](https://asciinema.org/a/YMUYSLUfwuGG1QUbTcVn6ldBC.png)](https://asciinema.org/a/YMUYSLUfwuGG1QUbTcVn6ldBC)
+[![asciicast](https://asciinema.org/a/aGwQBDkP65d4OAZRFC006dOTK.png)](https://asciinema.org/a/aGwQBDkP65d4OAZRFC006dOTK)
