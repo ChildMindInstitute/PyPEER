@@ -21,8 +21,9 @@ def scaffolding():
 
         os.makedirs(_data_dir)
 
-        print('\nThe "data" directory needs to contain at least one subdirectory that contains data. Each '
-              'subdirectory should contain at least two PEER files.\n')
+        print('\nThe "data" directory needs to contain at least one subdirectory that contains data before proceeding. Each '
+              'subdirectory should contain at least one PEER file '
+              'and one file used to estimate eye movements, such as an fMRI scan acquired during movie viewing or rest.\n')
 
         sys.exit()
 
