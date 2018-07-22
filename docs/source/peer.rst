@@ -4,7 +4,7 @@ peer package
 Submodules
 ----------
 
-peer.create\_peer module
+peer.create_peer module
 ------------------------
 
 .. automodule:: peer.create_peer
@@ -12,7 +12,7 @@ peer.create\_peer module
     :undoc-members:
     :show-inheritance:
 
-peer.estimate\_eyemove module
+peer.estimate_eyemove module
 -----------------------------
 
 .. automodule:: peer.estimate_eyemove
@@ -20,7 +20,7 @@ peer.estimate\_eyemove module
     :undoc-members:
     :show-inheritance:
 
-peer.peer\_func module
+peer.peer_func module
 ----------------------
 
 .. automodule:: peer.peer_func
@@ -28,7 +28,7 @@ peer.peer\_func module
     :undoc-members:
     :show-inheritance:
 
-peer.reset\_config module
+peer.reset_config module
 -------------------------
 
 .. automodule:: peer.reset_config
