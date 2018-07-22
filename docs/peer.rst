@@ -4,6 +4,14 @@ peer package
 Submodules
 ----------
 
+peer.peer_func module
+----------------------
+
+.. automodule:: peer.peer_func
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 peer.create_peer module
 ------------------------
 
@@ -16,14 +24,6 @@ peer.estimate_eyemove module
 -----------------------------
 
 .. automodule:: peer.estimate_eyemove
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-peer.peer_func module
-----------------------
-
-.. automodule:: peer.peer_func
     :members:
     :undoc-members:
     :show-inheritance:
