@@ -28,6 +28,8 @@ version = ''
 # The full version, including alpha/beta/rc tags
 release = ''
 
+os.system('bash source_build.sh')
+
 
 # -- General configuration ---------------------------------------------------
 
