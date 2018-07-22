@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+"""
+Functions to predict eye movements
+
+Authors:
+    - Jake Son, 2017-2018  (jake.son@childmind.org)  http://jakeson.me
+
+"""
+
 import os
 import sys
 import csv
@@ -10,6 +19,21 @@ from sklearn.externals import joblib
 
 
 def scaffolding():
+    """
+    Creates the project folder and file hierarchy and returns pathnames
+
+    Returns
+    -------
+    _project_dir : string
+        Pathname of the highest-level project directory
+    _data_dir : string
+        Pathname of the directory containing data
+    _output_dir : string
+        Pathname of the output directory
+    _stimulus_path : string
+        Pathname of the PEER calibration scan stimuli
+
+    """
 
     _project_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 
@@ -58,11 +82,21 @@ def scaffolding():
 
 
 def set_parameters(_configs, new=False):
-    """This is an example
+    """
+    Sets configuration parameters
 
-    :param _configs: Input configs
-    :param new: is this a new file?
-    :return: Updated config file
+    Parameters
+    ----------
+    _configs :
+        Dictionary containing configuration options from the config file (config.json)
+    new : bool
+        Do you want to start from a new file?
+
+    Returns
+    -------
+    _configs :
+        Updated dictionary containing configuration options from the config file (config.json)
+
     """
 
     if new:
@@ -125,6 +159,15 @@ def set_parameters(_configs, new=False):
 
 
 def load_config():
+    """
+    Loads configuration parameters as a dictionary from config.json
+
+    Returns
+    -------
+    _configs :
+        Dictionary containing configuration options from the config file (config.json)
+
+    """
 
     with open('peer/config.json', 'r') as f:
         _configs = json.load(f)
@@ -141,10 +184,19 @@ def load_config():
 
 
 def load_data(_filepath):
-    """Loads data in NIfTI file format
+    """
+    Loads fMRI data
 
-    :param _filepath: Path to NIfTI file
-    :return: Data in a numpy.ndarray
+    Parameters
+    ----------
+    _filepath : string
+        Pathname of the NIfTI file used to train a model or predict eye movements
+
+    Returns
+    -------
+    _data : float
+        4D numpy array containing fMRI data
+
     """
 
     nib_format = nib.load(_filepath)
@@ -156,6 +208,21 @@ def load_data(_filepath):
 
 
 def global_signal_regression(_data, _eye_mask_path):
+    """
+    Performs global signal regression
+
+    Parameters
+    ----------
+    _data : float
+        Data from an fMRI scan as a 4D numpy array
+    _eye_mask_path :
+        Pathname for the eye mask NIfTI file (the standard MNI152 2mm FSL template is used for the linked preprint)
+    Returns
+    -------
+    _data :
+        4D numpy array containing fMRI data after global signal regression
+
+    """
 
     eye_mask = nib.load(_eye_mask_path).get_data()
 
@@ -186,6 +253,24 @@ def global_signal_regression(_data, _eye_mask_path):
 
 
 def motion_scrub(_ms_filename, _data_dir, _motion_threshold):
+    """
+    Determines volumes with high motion artifact
+
+    Parameters
+    ----------
+    _ms_filename : string
+        Pathname of the CSV file containing the framewise displacement per time point for a given fMRI scan
+    _data_dir : string
+        Pathname of the directory containing data
+    _motion_threshold  : float
+        Threshold for high motion (framewise displacement, defined by Power et al. 2012)
+
+    Returns
+    -------
+    _removed_indices : int
+        List of volumes to remove for motion scrubbing
+
+    """
 
     file_path = os.path.abspath(os.path.join(_data_dir, _ms_filename))
 
@@ -201,6 +286,23 @@ def motion_scrub(_ms_filename, _data_dir, _motion_threshold):
 
 
 def prepare_data_for_svr(_data, _removed_time_points):
+    """
+    Preprocess fMRI data prior to SVR model generation
+
+    Parameters
+    ----------
+    _data : float
+        4D numpy array containing fMRI data after global signal regression
+    _removed_time_points : int
+        List of volumes to remove for motion scrubbing
+    Returns
+    -------
+    _processed_data : float
+        List of numpy arrays, where each array contains the averaged intensity values for each calibration point
+    _calibration_points_removed : int
+        List of calibration points removed if all volumes for a given calibration point were high motion
+
+    """
 
     if _removed_time_points is not None:
         print(str('The {}th volume(s) were removed.').format(_removed_time_points))
@@ -231,6 +333,26 @@ def prepare_data_for_svr(_data, _removed_time_points):
 
 
 def train_model(_data, _calibration_points_removed, _stimulus_path):
+    """
+    Trains the SVR model used in the PEER method
+
+    Parameters
+    ----------
+    _data : float
+        List of numpy arrays, where each array contains the averaged intensity values for each calibration point
+    _calibration_points_removed : int
+        List of calibration points removed if all volumes for a given calibration point were high motion
+    _stimulus_path : string
+        Pathname of the PEER calibration scan stimuli
+
+    Returns
+    -------
+    _xmodel :
+        SVR model to estimate eye movements in the x-direction
+    _ymodel :
+        SVR model to estimate eye movements in the y-direction
+
+    """
 
     monitor_width = 1680
     monitor_height = 1050
@@ -252,6 +374,25 @@ def train_model(_data, _calibration_points_removed, _stimulus_path):
 
 
 def save_model(_xmodel, _ymodel, _train_file, _ms, _gsr, _output_dir):
+    """
+    Saves the SVR models used in the PEER method
+
+    Parameters
+    ----------
+    _xmodel :
+        SVR model to estimate eye movements in the x-direction
+    _ymodel :
+        SVR model to estimate eye movements in the y-direction
+    _train_file : string
+        Pathname of the NIfTI file used to train the SVR model
+    _ms : bool
+        Whether or not to use motion scrubbing
+    _gsr : bool
+        Whether or not to use global signal regression
+    _output_dir :
+        Pathname of the output directory
+
+    """
 
     x_name = os.path.abspath(os.path.join(_output_dir,
                                           str('xmodel_' + _train_file.strip('.nii.gz') + '_ms' + _ms + '_gsr' + _gsr + '.pkl')))
@@ -265,6 +406,26 @@ def save_model(_xmodel, _ymodel, _train_file, _ms, _gsr, _output_dir):
 
 
 def load_model(_output_dir):
+    """
+    Loads the SVR models used to estimate eye movements
+
+    Parameters
+    ----------
+    _output_dir : string
+        Pathname of the output directory
+
+    Returns
+    -------
+    _xmodel :
+        SVR model to estimate eye movements in the x-direction
+    _ymodel :
+        SVR model to estimate eye movements in the y-direction
+    _xname : string
+        Filename of the model used to estimate eye movements in the x-direction
+    _yname : stringf
+        Filename of the model used to estimate eye movements in the y-direction
+
+    """
 
     model_selection = [x for x in os.listdir(_output_dir) if ('pkl' in x) and x.startswith('xmodel')]
 
@@ -311,6 +472,26 @@ def load_model(_output_dir):
 
 
 def predict_fixations(_xmodel, _ymodel, _data):
+    """
+    Predict fixations
+
+    Parameters
+    ----------
+    _xmodel :
+        SVR model to estimate eye movements in the x-direction
+    _ymodel :
+        SVR model to estimate eye movements in the y-direction
+    _data :
+        4D numpy array containing fMRI data used to predict eye movements (e.g., movie data)
+
+    Returns
+    -------
+    _x_fix : float
+        List of predicted fixations in the x-direction
+    _y_fix : float
+        List of predicted fixations in the y-direction
+
+    """
 
     _x_fix = _xmodel.predict(_data)
     _y_fix = _ymodel.predict(_data)
@@ -319,6 +500,30 @@ def predict_fixations(_xmodel, _ymodel, _data):
 
 
 def save_fixations(_x_fix, _y_fix, _xname, _yname, _output_dir):
+    """
+    Save predicted fixations
+
+    Parameters
+    ----------
+    _x_fix : float
+        List of predicted fixations in the x-direction
+    _y_fix : float
+        List of predicted fixations in the y-direction
+    _xname : string
+        Filename of the model used to estimate eye movements in the x-direction
+    _yname : string
+        Filename of the model used to estimate eye movements in the y-direction
+    _output_dir : string
+        Pathname of the output directory
+
+    Returns
+    -------
+    _fix_xname : string
+        Filename of the CSV containing fixation predictions in the x-direction
+    _fix_yname : string
+        Filename of the CSV containing fixation predictions in the y-direction
+
+    """
 
     _fix_xname = str('xfixations_' + _xname)
     _fix_yname = str('yfixations_' + _yname)
@@ -339,6 +544,22 @@ def save_fixations(_x_fix, _y_fix, _xname, _yname, _output_dir):
     return _fix_xname, _fix_yname
 
 def estimate_em(_x_fix, _y_fix, _fix_xname, _fix_yname, _output_dir):
+    """
+
+    Parameters
+    ----------
+    _x_fix : float
+        List of predicted fixations in the x-direction
+    _y_fix : float
+        List of predicted fixations in the y-direction
+    _fix_xname : string
+        Filename of the CSV containing fixation predictions in the x-direction
+    _fix_yname : string
+        Filename of the CSV containing fixation predictions in the y-direction
+    _output_dir : string
+        Pathname of the output directory
+
+    """
 
     _em_xname = str('x_eyemove' + _fix_xname)
     _em_yname = str('y_eyemove' + _fix_yname)

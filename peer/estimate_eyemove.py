@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+"""
+Script used on the command line to estimate eye movements
+
+Authors:
+    - Jake Son, 2017-2018  (jake.son@childmind.org)  http://jakeson.me
+
+"""
+
 from peer_func import *
 
 if __name__ == "__main__":

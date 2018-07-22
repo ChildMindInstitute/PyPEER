@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+"""
+Script used on the command line to reset configuration file
+
+Authors:
+    - Jake Son, 2017-2018  (jake.son@childmind.org)  http://jakeson.me
+
+"""
+
 from peer_func import *
 from pprint import pprint
 

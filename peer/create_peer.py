@@ -1,8 +1,18 @@
+#!/usr/bin/env python
+"""
+Script used on the command line to create SVR models for the PEER method
+
+Authors:
+    - Jake Son, 2017-2018  (jake.son@childmind.org)  http://jakeson.me
+
+"""
+
 from peer_func import *
 
 if __name__ == "__main__":
 
     project_dir, top_data_dir, output_dir, stimulus_path = scaffolding()
+
     os.chdir(project_dir)
 
     for i, dataset in enumerate([x for x in os.listdir(top_data_dir) if not x.startswith('.')]):
