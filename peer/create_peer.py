@@ -21,13 +21,20 @@ from peer_func import *
 
 if __name__ == "__main__":
 
-    project_dir, top_data_dir, output_dir, stimulus_path = scaffolding()
+    project_dir, top_data_dir, stimulus_path = scaffolding()
 
     os.chdir(project_dir)
+
+    print(top_data_dir)
 
     for i, dataset in enumerate([x for x in os.listdir(top_data_dir) if not x.startswith('.')]):
 
         data_dir = os.path.abspath(os.path.join(top_data_dir, dataset))
+
+        output_dir = os.path.abspath(os.path.join(data_dir, 'outputs'))
+
+        print(data_dir)
+        print(output_dir)
 
         print(('\nGenerating model for participant #{}').format(i+1))
         print('====================================================')

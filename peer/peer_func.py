@@ -78,7 +78,7 @@ def scaffolding():
 
                 _output_dir = os.path.abspath(os.path.join(_dataset_dir, 'outputs'))
 
-    return _project_dir, _data_dir, _output_dir, _stimulus_path
+    return _project_dir, _data_dir, _stimulus_path
 
 
 def set_parameters(_configs, new=False):
