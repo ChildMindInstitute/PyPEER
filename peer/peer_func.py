@@ -285,7 +285,7 @@ def motion_scrub(_ms_filename, _data_dir, _motion_threshold):
     return _removed_indices
 
 
-def prepare_data_for_svr(_data, _removed_time_points):
+def prepare_data_for_svr(_data, _removed_time_points, _eye_mask_path):
     """
     Preprocess fMRI data prior to SVR model generation
 
@@ -303,6 +303,28 @@ def prepare_data_for_svr(_data, _removed_time_points):
         List of calibration points removed if all volumes for a given calibration point were high motion
 
     """
+
+    eye_mask = nib.load(_eye_mask_path).get_data()
+
+    for vol in range(_data.shape[3]):
+        output = np.multiply(eye_mask, _data[:, :, :, vol])
+
+        _data[:, :, :, vol] = output
+
+    for x in range(_data.shape[0]):
+        for y in range(_data.shape[1]):
+            for z in range(_data.shape[2]):
+
+                vmean = np.mean(np.array(_data[x, y, z, :]))
+                vstdev = np.std(np.array(_data[x, y, z, :]))
+
+                for time in range(_data.shape[3]):
+                    if vstdev != 0:
+                        _data[x, y, z, time] = (float(_data[x, y, z, time]) - float(vmean))/vstdev
+
+                    else:
+                        _data[x, y, z, time] = float(_data[x, y, z, time]) - float(vmean)
+
 
     if _removed_time_points is not None:
         print(str('The {}th volume(s) were removed.').format(_removed_time_points))
@@ -364,10 +386,11 @@ def train_model(_data, _calibration_points_removed, _stimulus_path):
     x_targets = list(np.delete(np.array(x_targets), _calibration_points_removed))
     y_targets = list(np.delete(np.array(y_targets), _calibration_points_removed))
 
-    _xmodel = SVR(kernel='linear', C=100, epsilon=.01)
+    _xmodel = SVR(kernel='linear', C=100, epsilon=.01, verbose=2)
     _xmodel.fit(_data, x_targets)
+    print(x_targets)
 
-    _ymodel = SVR(kernel='linear', C=100, epsilon=.01)
+    _ymodel = SVR(kernel='linear', C=100, epsilon=.01, verbose=2)
     _ymodel.fit(_data, y_targets)
 
     return _xmodel, _ymodel

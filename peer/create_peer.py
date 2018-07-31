@@ -25,16 +25,11 @@ if __name__ == "__main__":
 
     os.chdir(project_dir)
 
-    print(top_data_dir)
-
     for i, dataset in enumerate([x for x in os.listdir(top_data_dir) if not x.startswith('.')]):
 
         data_dir = os.path.abspath(os.path.join(top_data_dir, dataset))
 
         output_dir = os.path.abspath(os.path.join(data_dir, 'outputs'))
-
-        print(data_dir)
-        print(output_dir)
 
         print(('\nGenerating model for participant #{}').format(i+1))
         print('====================================================')
@@ -47,13 +42,13 @@ if __name__ == "__main__":
         print('====================================================')
 
         data = load_data(filepath)
+        eye_mask_path = configs['eye_mask_path']
 
         if int(configs['use_gsr']):
 
             print('\nGlobal Signal Regression')
             print('====================================================')
 
-            eye_mask_path = configs['eye_mask_path']
             data = global_signal_regression(data, eye_mask_path)
 
         if int(configs['use_ms']):
@@ -68,7 +63,7 @@ if __name__ == "__main__":
         else:
             removed_indices = None
 
-        processed_data, calibration_points_removed = prepare_data_for_svr(data, removed_indices)
+        processed_data, calibration_points_removed = prepare_data_for_svr(data, removed_indices, eye_mask_path)
 
         print('\nTrain PEER')
         print('====================================================')
