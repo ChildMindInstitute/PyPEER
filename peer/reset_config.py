@@ -13,7 +13,7 @@ from pprint import pprint
 
 def update_config():
 
-    project_dir, data_dir, output_dir, stimulus_path = scaffolding()
+    project_dir, data_dir, stimulus_path = scaffolding()
     os.chdir(project_dir)
 
     configs = load_config()

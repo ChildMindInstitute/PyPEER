@@ -304,28 +304,6 @@ def prepare_data_for_svr(_data, _removed_time_points, _eye_mask_path):
 
     """
 
-    eye_mask = nib.load(_eye_mask_path).get_data()
-
-    for vol in range(_data.shape[3]):
-        output = np.multiply(eye_mask, _data[:, :, :, vol])
-
-        _data[:, :, :, vol] = output
-
-    for x in range(_data.shape[0]):
-        for y in range(_data.shape[1]):
-            for z in range(_data.shape[2]):
-
-                vmean = np.mean(np.array(_data[x, y, z, :]))
-                vstdev = np.std(np.array(_data[x, y, z, :]))
-
-                for time in range(_data.shape[3]):
-                    if vstdev != 0:
-                        _data[x, y, z, time] = (float(_data[x, y, z, time]) - float(vmean))/vstdev
-
-                    else:
-                        _data[x, y, z, time] = float(_data[x, y, z, time]) - float(vmean)
-
-
     if _removed_time_points is not None:
         print(str('The {}th volume(s) were removed.').format(_removed_time_points))
     else:
