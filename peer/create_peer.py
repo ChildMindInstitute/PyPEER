@@ -3,7 +3,7 @@
 Script used on the command line to create SVR models for the PEER method
 
 Authors:
-    - Jake Son, 2017-2018  (jake.son@childmind.org)  http://jakeson.me
+    - Jake Son, 2017-2018  (jake.son@childmind.org)
 
 """
 
@@ -41,8 +41,29 @@ if __name__ == "__main__":
         print('\nLoad Data')
         print('====================================================')
 
-        data = load_data(filepath)
         eye_mask_path = configs['eye_mask_path']
+        eye_mask = nib.load(eye_mask_path).get_data()
+
+        data = load_data(filepath)
+
+        for vol in range(data.shape[3]):
+
+            output = np.multiply(eye_mask, data[:, :, :, vol])
+            data[:, :, :, vol] = output
+
+        volumes = data.shape[3]
+
+        for x in range(data.shape[0]):
+            for y in range(data.shape[1]):
+                for z in range(data.shape[2]):
+                    vmean = np.mean(np.array(data[x, y, z, :]))
+                    vstdv = np.std(np.array(data[x, y, z, :]))
+
+                    for time in range(volumes):
+                        if vstdv != 0:
+                            data[x, y, z, time] = (float(data[x, y, z, time]) - float(vmean))/vstdv
+                        else:
+                            data[x, y, z, time] = float(data[x, y, z, time]) - float(vmean)
 
         if int(configs['use_gsr']):
 
