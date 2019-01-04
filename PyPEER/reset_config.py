@@ -7,7 +7,7 @@ Authors:
 
 """
 
-from peer_func import *
+from .peer_func import *
 from pprint import pprint
 
 
