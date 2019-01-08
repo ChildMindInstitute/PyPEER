@@ -3,7 +3,7 @@
 Functions to predict eye movements
 
 Authors:
-    - Jake Son, 2017-2018  (jake.son@childmind.org)  http://jakeson.me
+    - Jake Son, 2017-2018  (jake.son@childmind.org)
 
 """
 
