@@ -111,6 +111,11 @@ ax.yaxis.set_major_locator(ticker.MultipleLocator(base=100))
 plt.title('Fixation Series for Calibration Scan')
 plt.show()
 
+###############################################################################
+
+###############################################################################
+# Determining error measures with distance measurements
+
 
 
 ###############################################################################
