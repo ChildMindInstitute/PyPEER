@@ -9,7 +9,6 @@ Authors:
 
 # Load for all analysis
 
-import os
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -163,6 +162,8 @@ visual_angle_df.to_csv('/data2/Projects/Jake/PyPEER/visual_angles.csv')
 
 # Calculating error measures
 
+visual_angle_df = pd.DataFrame.from_csv('/data2/Projects/Jake/PyPEER/visual_angles.csv')
+
 e_df = visual_angle_df[visual_angle_df.direction =='horizontal']
 e_df = e_df.drop(['sub','direction'], axis=1)
 e_df = e_df.to_records(index=False)
@@ -179,49 +180,74 @@ for item in e_df:
     error.append(va_deviation)
 
 median_error = np.median(np.ravel(error))
-print(median_error)
 
-###############################################################################
+# Tukey plot of error in x- and y- directions
 
-# Visualization Example
+vals = []
+labels = []
+dirs = []
 
-df = pd.read_csv('/data2/Projects/Jake/Human_Brain_Mapping/sub-5343770/gsr0_train1_model_calibration_predictions.csv')
+h_df = visual_angle_df[visual_angle_df.direction == 'horizontal']
+h_df = h_df.drop(['sub', 'direction'], axis=1)
 
-x_pred = df.x_pred.tolist()
-y_pred = df.y_pred.tolist()
+p_len = h_df.shape[0]
+
+for num in range(27):
+    
+    vals.append([abs(x) for x in h_df[str(num)].values])
+    labels.append([str(num + 1)] * p_len)
+    dirs.append(['horizontal'] * p_len)
+    
+v_df = visual_angle_df[visual_angle_df.direction == 'horizontal']
+v_df = v_df.drop(['sub', 'direction'], axis=1)
+
+p_len = v_df.shape[0]
+
+for num in range(27):
+    
+    vals.append([abs(x) for x in v_df[str(num)].values])
+    labels.append([str(num + 1)] * p_len)
+    dirs.append(['vertical'] * p_len)
+
+
+df = pd.DataFrame.from_dict({'values': np.ravel(vals),
+                             'point#': [int(x) for x in np.ravel(labels)],
+                             'direction': np.ravel(dirs)})
+
+ax = sns.boxplot(x='point#', y='values', hue='direction', data=df, showfliers=False, palette='Set3')
+plt.savefig('/data2/Projects/Jake/PyPEER/Figures/angular_deviation_histogram.png')
+plt.gcf().clear()
+
+
+# Labeled calibration display
+stim_df = pd.read_csv('/home/json/Desktop/peer/stim_vals.csv')
+
+x_stim = stim_df.pos_x.tolist()
+y_stim = stim_df.pos_y.tolist()
+
+x_stim = np.array(x_stim) * width/2
+y_stim = np.array(y_stim) * height/2
 
 plt.figure()
-plt.subplot(2,1,1)
-plt.ylim([-850, 850])
-plt.plot(range(len(x_stim)), x_stim, color='black', label='Target')
-plt.plot(range(len(x_pred)), x_pred, color='blue', label='PEER')
-plt.subplot(2,1,2)
-plt.ylim([-600, 600])
-plt.plot(range(len(y_stim)), y_stim, color='black', label='Target')
-plt.plot(range(len(y_pred)), y_pred, color='blue', label='PEER')
-plt.savefig('/home/json/Desktop/fixation_series.png')
-plt.show()
+for i in range(27):
+    if (i != 18) & (i != 25):
+        plt.scatter(x_stim[i], y_stim[i])
+        plt.text(x_stim[i]+20, y_stim[i]+20, str(i+1))
+    elif i == 18:
+        plt.scatter(x_stim[i], y_stim[i])
+        plt.text(x_stim[i]+45, y_stim[i]+20, str(',19'))
+    elif i == 25:
+        plt.scatter(x_stim[i], y_stim[i])
+        plt.text(x_stim[i]+130, y_stim[i]+20, str(',26'))
+plt.savefig('/data2/Projects/Jake/PyPEER/Figures/calibration_screen.png', dpi=600)
+plt.gcf().clear()
 
-pointwise_error = []
 
-for i in range(int(len(x_pred)/5)):
-    
-    x_delta = x_pred[i] - x_stim[i]
-    y_delta = y_pred[i] - y_stim[i]
-    pointwise_error.append(np.sqrt((x_delta)**2 + (y_delta)**2))
 
-cmap = matplotlib.cm.get_cmap('viridis')
-normalize = matplotlib.colors.Normalize(vmin=min(pointwise_error), vmax=max(pointwise_error))
-colors = [cmap(normalize(value)) for value in pointwise_error]
 
-fig, ax = plt.subplots(figsize=(12, 8))
-plt.xlim([-width/2, width/2])
-plt.ylim([-height/2, height/2])
-ax.scatter(x_stim, y_stim, color='black', marker='x')
-ax.scatter(x_pred, y_pred, color=colors, alpha=.8)
-cax, _ = matplotlib.colorbar.make_axes(ax)
-cbar = matplotlib.colorbar.ColorbarBase(cax, cmap=cmap, norm=normalize)
-plt.savefig('/home/json/Desktop/2d_viz.png')
-plt.show()
+
+
+
+
 
 
