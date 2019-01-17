@@ -7,6 +7,8 @@ Authors:
 
 """
 
+# Load for all analysis
+
 import os
 import matplotlib
 import numpy as np
@@ -62,7 +64,7 @@ stdv_y_corr = np.std(corr_df.y_corr.tolist())  # .32
 ###############################################################################
 
 ###############################################################################
-# Create heatmap for calibration scans
+# Create heatmap for calibration scans sorted by motion
 
 analysis_df = pd.read_csv('/home/json/Desktop/peer/model_outputs.csv')
 analysis_df = analysis_df.sort_values(by=['mean_fd'])
@@ -116,7 +118,68 @@ plt.show()
 ###############################################################################
 # Determining error measures with distance measurements
 
+from math import atan2, degrees
 
+h = 21 # Monitor height in cm
+d = 135 # Distance between monitor and participant in cm
+r = 1050 # Vertical resolution of the monitor
+
+deg_per_px = degrees(atan2(.5*h, d)) / (.5*r)
+
+analysis_df = pd.read_csv('/home/json/Desktop/peer/model_outputs.csv')
+sub_list = analysis_df.subject.tolist()
+
+visual_angles = []
+directions = []
+
+for sub in sub_list:
+
+    filename = data_path + sub + '/gsr0_train1_model_calibration_predictions.csv'
+    
+    df = pd.read_csv(filename)
+    
+    x_series = df.x_pred.tolist()
+    y_series = df.y_pred.tolist()
+    
+    x_angle = []
+    y_angle = []
+    
+    for num in range(len(x_stim)):
+        
+        x_angle.append((x_stim[num] - x_series[num]) * deg_per_px)
+        y_angle.append((y_stim[num] - y_series[num]) * deg_per_px)
+    
+    visual_angles.append(x_angle)
+    visual_angles.append(y_angle)
+    
+    directions.append('horizontal')
+    directions.append('vertical')
+
+visual_angle_df = pd.DataFrame.from_records(visual_angles)
+visual_angle_df['sub'] = np.ravel([[x]*2 for x in sub_list])
+visual_angle_df['direction'] = directions
+
+visual_angle_df.to_csv('/data2/Projects/Jake/PyPEER/visual_angles.csv')
+
+# Calculating error measures
+
+e_df = visual_angle_df[visual_angle_df.direction =='horizontal']
+e_df = e_df.drop(['sub','direction'], axis=1)
+e_df = e_df.to_records(index=False)
+
+error = []
+
+for item in e_df:
+        
+    # Accounting for direction of error
+    # print(np.median(list(item)))
+        
+    # Not accounting for direction of error
+    va_deviation = np.median([abs(x) for x in list(item)])
+    error.append(va_deviation)
+
+median_error = np.median(np.ravel(error))
+print(median_error)
 
 ###############################################################################
 
