@@ -16,7 +16,7 @@ import pandas as pd
 import nibabel as nib
 from sklearn.svm import SVR
 from sklearn.externals import joblib
-
+import time
 from peer_func import *
 
 if __name__ == "__main__":
@@ -47,23 +47,18 @@ if __name__ == "__main__":
         data = load_data(filepath)
 
         for vol in range(data.shape[3]):
-
             output = np.multiply(eye_mask, data[:, :, :, vol])
             data[:, :, :, vol] = output
-
         volumes = data.shape[3]
+        start_time = time.time()
+        mean_data = np.mean(data, axis=3)
+        std_data = np.std(data, axis=3)
+        std_data[std_data == 0] = 1
 
-        for x in range(data.shape[0]):
-            for y in range(data.shape[1]):
-                for z in range(data.shape[2]):
-                    vmean = np.mean(np.array(data[x, y, z, :]))
-                    vstdv = np.std(np.array(data[x, y, z, :]))
-
-                    for time in range(volumes):
-                        if vstdv != 0:
-                            data[x, y, z, time] = (float(data[x, y, z, time]) - float(vmean))/vstdv
-                        else:
-                            data[x, y, z, time] = float(data[x, y, z, time]) - float(vmean)
+        for i in range(volumes):
+            data[:, :, :, i] = (data[:, :, :, i]-mean_data)/std_data
+        elapsed_time = time.time() - start_time
+        print("Elapsed time: " + str(elapsed_time))
 
         if int(configs['use_gsr']):
 
