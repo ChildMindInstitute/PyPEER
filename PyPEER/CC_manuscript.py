@@ -9,10 +9,12 @@ Authors:
 
 # Load for all analysis
 
+import os
 import matplotlib
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from statsmodels import robust
 import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 import matplotlib.ticker as ticker
@@ -164,7 +166,7 @@ visual_angle_df.to_csv('/data2/Projects/Jake/PyPEER/visual_angles.csv')
 
 visual_angle_df = pd.DataFrame.from_csv('/data2/Projects/Jake/PyPEER/visual_angles.csv')
 
-e_df = visual_angle_df[visual_angle_df.direction =='horizontal']
+e_df = visual_angle_df[visual_angle_df.direction =='vertical']
 e_df = e_df.drop(['sub','direction'], axis=1)
 e_df = e_df.to_records(index=False)
 
@@ -180,6 +182,7 @@ for item in e_df:
     error.append(va_deviation)
 
 median_error = np.median(np.ravel(error))
+mad_error = robust.mad(np.ravel(error))
 
 # Tukey plot of error in x- and y- directions
 
@@ -198,7 +201,7 @@ for num in range(27):
     labels.append([str(num + 1)] * p_len)
     dirs.append(['horizontal'] * p_len)
     
-v_df = visual_angle_df[visual_angle_df.direction == 'horizontal']
+v_df = visual_angle_df[visual_angle_df.direction == 'vertical']
 v_df = v_df.drop(['sub', 'direction'], axis=1)
 
 p_len = v_df.shape[0]
@@ -215,7 +218,7 @@ df = pd.DataFrame.from_dict({'values': np.ravel(vals),
                              'direction': np.ravel(dirs)})
 
 ax = sns.boxplot(x='point#', y='values', hue='direction', data=df, showfliers=False, palette='Set3')
-plt.savefig('/data2/Projects/Jake/PyPEER/Figures/angular_deviation_histogram.png')
+plt.savefig('/data2/Projects/Jake/PyPEER/Figures/angular_deviation_histogram.png', dpi=600)
 plt.gcf().clear()
 
 
@@ -241,6 +244,50 @@ for i in range(27):
         plt.text(x_stim[i]+130, y_stim[i]+20, str(',26'))
 plt.savefig('/data2/Projects/Jake/PyPEER/Figures/calibration_screen.png', dpi=600)
 plt.gcf().clear()
+
+###############################################################################
+
+###############################################################################
+
+# Determining visual angle with NKI data
+
+x_et = []
+x_peer = []
+y_et = []
+y_peer = []
+
+for sub in os.listdir('/data2/Projects/Jake/PyPEER/NKI'):
+    
+    x_pathname = '/data2/Projects/Jake/PyPEER/NKI/' + sub + '/difference_x.csv'
+    y_pathname = '/data2/Projects/Jake/PyPEER/NKI/' + sub + '/difference_y.csv'
+    
+    x_df = pd.read_csv(x_pathname)
+    y_df = pd.read_csv(y_pathname)
+    
+    x_et.append(x_df.eyetracker_diff_va.tolist())
+    x_peer.append(x_df.peer_diff_va.tolist())
+    y_et.append(y_df.eyetracker_diff_va.tolist())
+    y_peer.append(y_df.peer_diff_va.tolist())
+
+x_et = np.ravel(x_et)
+x_peer = np.ravel(x_peer)
+y_et = np.ravel(y_et)
+y_peer = np.ravel(y_peer)
+
+print(str('ET: x median {} mad {}').format(np.median(x_et), robust.mad(x_et)))
+print(str('ET: y median {} mad {}').format(np.median(y_et), robust.mad(y_et)))
+print(str('PEER: x median {} mad {}').format(np.median(x_peer), robust.mad(x_peer)))
+print(str('PEER y median {} mad {}').format(np.median(y_peer), robust.mad(y_peer)))
+
+
+
+
+
+
+
+
+
+
 
 
 
