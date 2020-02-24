@@ -1,4 +1,4 @@
 # PyPEER
 Predictive Eye Estimation Regression
 
-Son, J., Ai, L., Lim, R., Xu, T., Colcombe, S., Franco, A., Cloud, J., LaConte, S., Lisinski, J., Klein, A., Craddock, C., Milham, M. (2018). Evaluating fMRI-Based Estimation of Eye Gaze during Naturalistic Viewing. bioRxiv. [https://doi.org/10.1101/347765](https://doi.org/10.1101/347765)
+Son, Jake J., Ai, L., Lim, R., Xu, T., Colcombe, S., Franco, A. R., Cloud, J., LaConte, S., Lisinski, J., Klein, A., Craddock, R. C., Milham, M. (In press). “Evaluating fMRI-Based Estimation of Eye Gaze during Naturalistic Viewing.” Cerebral Cortex. [Link] (https://academic.oup.com/cercor/advance-article/doi/10.1093/cercor/bhz157/5583730)
