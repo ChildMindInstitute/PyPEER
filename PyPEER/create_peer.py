@@ -15,7 +15,6 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 from sklearn.svm import SVR
-from sklearn.externals import joblib
 
 from peer_func import *
 

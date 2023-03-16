@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='PyPEER',
-      version='1.0',
+      version='1.1',
       description='Predictive Eye Estimation Regression',
       url='https://github.com/ChildMindInstitute/PyPEER',
       author='Jake Son',
